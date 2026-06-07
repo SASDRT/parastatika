@@ -291,6 +291,7 @@ export default function App() {
           const color = tab === 1 ? '#4ade80' : '#f87171'
           const total = list.reduce((s, i) => s + (i.total || 0), 0)
           const flist = filtered(list)
+          const [expandedId, setExpandedId] = useState(null)
           return (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
@@ -310,30 +311,63 @@ export default function App() {
                   <div>Δεν υπάρχουν παραστατικά ακόμα</div>
                 </div>
               ) : (
-                <div style={{ ...s.card, padding: 0, overflow: 'hidden', overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
-                    <thead>
-                      <tr>
-                        {['ΗΜΕΡΟΜΗΝΙΑ', 'ΑΡΙΘΜΟΣ', tab === 1 ? 'ΠΕΛΑΤΗΣ' : 'ΠΡΟΜΗΘΕΥΤΗΣ', 'ΑΦΜ', 'ΚΑΘΑΡΗ', 'ΦΠΑ', 'ΣΥΝΟΛΟ', ''].map(h => (
-                          <th key={h} style={s.th}>{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {flist.map(inv => (
-                        <tr key={inv.id} style={{ transition: 'background .1s' }} onMouseEnter={e => e.currentTarget.style.background = '#1e2232'} onMouseLeave={e => e.currentTarget.style.background = ''}>
-                          <td style={{ ...s.td, color: '#9ca3af', fontSize: 12 }}>{fmtDate(inv.date)}</td>
-                          <td style={{ ...s.td, fontFamily: 'monospace', fontSize: 12 }}>{inv.number || '—'}</td>
-                          <td style={{ ...s.td, fontWeight: 500 }}>{inv.counterparty || '—'}</td>
-                          <td style={{ ...s.td, fontFamily: 'monospace', fontSize: 12, color: '#6b7280' }}>{inv.afm || '—'}</td>
-                          <td style={{ ...s.td, fontFamily: 'monospace', textAlign: 'right' }}>{fmt(inv.subtotal)}</td>
-                          <td style={{ ...s.td, fontFamily: 'monospace', textAlign: 'right', color: '#6b7280' }}>{fmt(inv.vat)}</td>
-                          <td style={{ ...s.td, fontFamily: 'monospace', textAlign: 'right', fontWeight: 700, color }}>{fmt(inv.total)}</td>
-                          <td style={s.td}><button style={s.btnDanger} onClick={() => deleteInvoice(inv.id)}>✕</button></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {flist.map(inv => (
+                    <div key={inv.id} style={{ ...s.card, padding: 0, overflow: 'hidden' }}>
+                      {/* Κεφαλίδα γραμμής */}
+                      <div
+                        onClick={() => setExpandedId(expandedId === inv.id ? null : inv.id)}
+                        style={{ display: 'grid', gridTemplateColumns: '100px 90px 1fr 120px 100px 100px 110px 40px', gap: 8, padding: '12px 16px', cursor: 'pointer', alignItems: 'center' }}
+                        onMouseEnter={e => e.currentTarget.style.background = '#1e2232'}
+                        onMouseLeave={e => e.currentTarget.style.background = ''}
+                      >
+                        <span style={{ color: '#9ca3af', fontSize: 12 }}>{fmtDate(inv.date)}</span>
+                        <span style={{ fontFamily: 'monospace', fontSize: 12 }}>{inv.number || '—'}</span>
+                        <span style={{ fontWeight: 600, fontSize: 13 }}>{inv.counterparty || '—'}</span>
+                        <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#6b7280' }}>{inv.afm || '—'}</span>
+                        <span style={{ fontFamily: 'monospace', textAlign: 'right', fontSize: 12 }}>{fmt(inv.subtotal)}</span>
+                        <span style={{ fontFamily: 'monospace', textAlign: 'right', fontSize: 12, color: '#6b7280' }}>{fmt(inv.vat)}</span>
+                        <span style={{ fontFamily: 'monospace', textAlign: 'right', fontWeight: 700, color, fontSize: 13 }}>{fmt(inv.total)}</span>
+                        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+                          <span style={{ color: '#6b7280', fontSize: 14 }}>{expandedId === inv.id ? '▲' : '▼'}</span>
+                          <button style={s.btnDanger} onClick={e => { e.stopPropagation(); deleteInvoice(inv.id) }}>✕</button>
+                        </div>
+                      </div>
+                      {/* Αναπτυσσόμενα είδη */}
+                      {expandedId === inv.id && (
+                        <div style={{ borderTop: '1px solid #2e3347', padding: '12px 16px', background: '#13151f' }}>
+                          {inv.items && inv.items.length > 0 ? (
+                            <div>
+                              <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600, letterSpacing: 1, marginBottom: 8 }}>ΕΙΔΗ ΠΑΡΑΣΤΑΤΙΚΟΥ</div>
+                              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead>
+                                  <tr>
+                                    {['ΠΕΡΙΓΡΑΦΗ', 'ΠΟΣ.', 'ΤΙΜΗ ΜΟΝΑΔΑΣ', 'ΣΥΝΟΛΟ'].map(h => (
+                                      <th key={h} style={{ ...s.th, fontSize: 10, padding: '6px 8px' }}>{h}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {inv.items.map((item, i) => (
+                                    <tr key={i}>
+                                      <td style={{ ...s.td, fontSize: 12, padding: '8px' }}>{item.description || '—'}</td>
+                                      <td style={{ ...s.td, fontSize: 12, padding: '8px', fontFamily: 'monospace', textAlign: 'right' }}>{item.quantity || '—'}</td>
+                                      <td style={{ ...s.td, fontSize: 12, padding: '8px', fontFamily: 'monospace', textAlign: 'right' }}>{item.unit_price ? fmt(item.unit_price) : '—'}</td>
+                                      <td style={{ ...s.td, fontSize: 12, padding: '8px', fontFamily: 'monospace', textAlign: 'right', fontWeight: 600, color }}>{item.total ? fmt(item.total) : '—'}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            <div style={{ color: '#6b7280', fontSize: 12 }}>
+                              {inv.notes ? <span><strong>Σημειώσεις:</strong> {inv.notes}</span> : 'Δεν υπάρχουν είδη καταχωρημένα'}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
