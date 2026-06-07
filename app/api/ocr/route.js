@@ -1,14 +1,14 @@
 export async function POST(request) {
   try {
-    const { base64, mediaType } = await request.json()
+    const { base64, mediaType, mode } = await request.json()
     const isPDF = mediaType === 'application/pdf'
 
     const content = isPDF ? [
       { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-      { type: 'text', text: getPrompt() }
+      { type: 'text', text: mode === 'expense' ? getExpensePrompt() : getInvoicePrompt() }
     ] : [
       { type: 'image', source: { type: 'base64', media_type: mediaType || 'image/jpeg', data: base64 } },
-      { type: 'text', text: getPrompt() }
+      { type: 'text', text: mode === 'expense' ? getExpensePrompt() : getInvoicePrompt() }
     ]
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -26,8 +26,6 @@ export async function POST(request) {
     })
 
     const data = await response.json()
-    
-    // Log error if API failed
     if (data.error) {
       console.error('Anthropic error:', JSON.stringify(data.error))
       return Response.json({ success: false, error: data.error.message }, { status: 500 })
@@ -43,7 +41,36 @@ export async function POST(request) {
   }
 }
 
-function getPrompt() {
+function getExpensePrompt() {
+  return `Διάβασε αυτή την απόδειξη και επέστρεψε ΜΟΝΟ JSON χωρίς backticks.
+
+Κατηγορίες: Διόδια / Καύσιμα / Στάθμευση / Τηλεφωνία / Ίντερνετ / Αναλώσιμα / Γραφική ύλη / Φαγητό-Καφές / Ταχυδρομικά / Συντήρηση οχήματος / Ασφάλεια / Ενοίκιο / ΔΕΗ-ΕΥΔΑΠ / Διαφήμιση / Λογισμικό / Άλλο
+
+Κανόνες κατηγοριοποίησης:
+- Aegean Motorway, Egnatia Odos, διόδια → Διόδια
+- ΕΚΟ, BP, Shell, Aegean Oil, Avin, Ελίν, βενζίνη, diesel → Καύσιμα
+- parking, στάθμευση → Στάθμευση
+- Cosmote, Vodafone, Wind, Nova, τηλέφωνο → Τηλεφωνία
+- ΟΤΕ, internet, ίντερνετ → Ίντερνετ
+- ΔΕΗ, ρεύμα, ΕΥΔΑΠ, νερό → ΔΕΗ-ΕΥΔΑΠ
+- εστιατόριο, καφέ, ταβέρνα, φαγητό → Φαγητό-Καφές
+
+{
+  "date": "YYYY-MM-DD",
+  "category": "κατηγορία από τη λίστα",
+  "description": "σύντομη περιγραφή",
+  "vendor": "επωνυμία καταστήματος/εταιρείας",
+  "amount": αριθμός (συνολικό ποσό με ΦΠΑ),
+  "vat": αριθμός (ποσό ΦΠΑ αν αναγράφεται),
+  "payment_method": "Μετρητά ή Χρεωστική κάρτα ή Πιστωτική κάρτα",
+  "receipt_ref": "αριθμός απόδειξης αν υπάρχει",
+  "notes": "σημειώσεις"
+}
+
+ΜΟΝΟ JSON.`
+}
+
+function getInvoicePrompt() {
   return `Διάβασε αυτό το τιμολόγιο ΠΟΛΥ ΠΡΟΣΕΚΤΙΚΑ. Επέστρεψε ΜΟΝΟ JSON χωρίς backticks.
 
 ΑΠΟΛΥΤΟΣ ΚΑΝΟΝΑΣ:
