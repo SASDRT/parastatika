@@ -807,14 +807,26 @@ function KartelesTab({ invoices, byCounterparty, fmt, fmtDate }) {
   const [searchKartela, setSearchKartela] = useState("")
   const [expandedInvId, setExpandedInvId] = useState(null)
   const [selCP, setSelCP] = useState(null)
-  const list = byCounterparty(cpType)
+  const allList = byCounterparty(cpType)
+  const list = searchKartela ? allList.filter(cp => {
+    const q = searchKartela.toLowerCase()
+    const nameMatch = (cp.name || '').toLowerCase().includes(q) || (cp.trade_name || '').toLowerCase().includes(q) || (cp.afm || '').includes(q)
+    const itemMatch = cp.invoices.some(inv => (inv.items || []).some(it =>
+      (it.description || '').toLowerCase().includes(q) || (it.code || '').toLowerCase().includes(q)
+    ))
+    const invMatch = cp.invoices.some(inv =>
+      (inv.number || '').toLowerCase().includes(q) || (inv.invoice_type || '').toLowerCase().includes(q) ||
+      (inv.issuer_name || '').toLowerCase().includes(q) || (inv.issuer_trade_name || '').toLowerCase().includes(q)
+    )
+    return nameMatch || itemMatch || invMatch
+  }) : allList
   const selected = list.find(c => c.name === selCP)
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(230px, 290px) 1fr', gap: 20 }}>
       <div>
         <div style={{ marginBottom: 10 }}>
-          <input placeholder="🔍 Αναζήτηση..." value={kartelaSearch} onChange={e => { setKartelaSearch(e.target.value); setSelCP(null) }}
+          <input placeholder="🔍 Αναζήτηση..." value={searchKartela} onChange={e => { setSearchKartela(e.target.value); setSelCP(null) }}
             style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '8px 12px', fontSize: 12, width: '100%', outline: 'none', fontFamily: 'inherit' }} />
         </div>
         <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
