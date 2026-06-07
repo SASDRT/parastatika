@@ -966,7 +966,7 @@ function KartelesTab({ invoices, payments, byCounterparty, fmt, fmtDate }) {
                       const credit = !isInvoice ? (mov.amount || 0) : 0
                       running += debit - credit
                       const balColor = running > 0 ? '#f87171' : running < 0 ? '#4ade80' : '#5a6070'
-                      return (
+                      return (<React.Fragment key={idx}>
                       <tr key={idx} onMouseEnter={e => e.currentTarget.style.background='#1a1d2b'} onMouseLeave={e => e.currentTarget.style.background=''}>
                         <td style={{ padding:'10px 12px', borderBottom:'1px solid #161824', fontSize:12, color:'#9ca3af', fontFamily:'monospace' }}>{fmtDate(mov._date)}</td>
                         <td style={{ padding:'10px 12px', borderBottom:'1px solid #161824', fontSize:12 }}>
@@ -985,7 +985,7 @@ function KartelesTab({ invoices, payments, byCounterparty, fmt, fmtDate }) {
                         </td>
                       </tr>
                       {isInvoice && expandedInvId === mov.id && (mov.items||[]).length > 0 && (
-                        <tr key={mov.id + '_items'}>
+                        <tr>
                           <td colSpan={8} style={{ padding: 0, background: '#0a0c13' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                               <thead>
@@ -1012,6 +1012,7 @@ function KartelesTab({ invoices, payments, byCounterparty, fmt, fmtDate }) {
                           </td>
                         </tr>
                       )}
+                      </React.Fragment>)
                     })}
                   </tbody>
                 </table>
