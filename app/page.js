@@ -131,6 +131,35 @@ export default function App() {
     setSession(null)
   }
 
+  const handleBackup = async () => {
+    try {
+      const [inv, pay, exp, trd] = await Promise.all([
+        supabase.from('invoices').select('*'),
+        supabase.from('payments').select('*'),
+        supabase.from('expenses').select('*'),
+        supabase.from('traders').select('*')
+      ])
+      const backup = {
+        exported_at: new Date().toISOString(),
+        company: 'SMART AUTOMATION SOLUTIONS DRT',
+        invoices: inv.data || [],
+        payments: pay.data || [],
+        expenses: exp.data || [],
+        traders: trd.data || []
+      }
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `parastatika-backup-${new Date().toISOString().split('T')[0]}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+      notify(`Backup ολοκληρώθηκε! ${backup.invoices.length} παραστατικά, ${backup.payments.length} πληρωμές`)
+    } catch(e) {
+      notify('Σφάλμα backup: ' + e.message, 'error')
+    }
+  }
+
   const notify = (msg, type = 'success') => {
     setNotification({ msg, type })
     setTimeout(() => setNotification(''), 4000)
@@ -362,7 +391,10 @@ export default function App() {
             <div style={C.logoIcon}>P</div>
             <span>Παραστατικά</span>
           </div>
-          <button onClick={handleLogout} style={{ background: 'transparent', color: '#5a6070', border: '1px solid #2a3040', padding: '5px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer', marginLeft: 0 }}>Αποσύνδεση</button>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button onClick={handleBackup} style={{ background: 'transparent', color: '#5a6070', border: '1px solid #2a3040', padding: '5px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>Backup</button>
+            <button onClick={handleLogout} style={{ background: 'transparent', color: '#5a6070', border: '1px solid #2a3040', padding: '5px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>Αποσύνδεση</button>
+          </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <div style={{ position: 'relative' }}>
               <button onClick={() => setShowPeriodPicker(!showPeriodPicker)}
