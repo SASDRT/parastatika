@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
 const fmt = (n) => new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' }).format(n || 0)
@@ -804,6 +804,8 @@ function KartelesTab({ invoices, byCounterparty, fmt, fmtDate }) {
     win.document.close()
   }
   const [cpType, setCpType] = useState('income')
+  const [searchKartela, setSearchKartela] = useState("")
+  const [expandedInvId, setExpandedInvId] = useState(null)
   const [selCP, setSelCP] = useState(null)
   const list = byCounterparty(cpType)
   const selected = list.find(c => c.name === selCP)
@@ -864,23 +866,76 @@ function KartelesTab({ invoices, byCounterparty, fmt, fmtDate }) {
               <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 550 }}>
                   <thead>
-                    <tr>{['ΗΜΕΡΟΜΗΝΙΑ', 'ΕΙΔΟΣ', 'ΑΡΙΘΜΟΣ', 'ΚΑΘΑΡΗ', 'ΦΠΑ', 'ΣΥΝΟΛΟ', 'ΠΛΗΡΩΜΗ'].map(h => (
-                      <th key={h} style={{ textAlign: 'left', fontSize: 10, fontWeight: 700, letterSpacing: 1, color: '#5a6070', padding: '9px 12px', borderBottom: '1px solid #1e2232' }}>{h}</th>
+                    <tr>{['ΗΜΕΡΟΜΗΝΙΑ', 'ΕΙΔΟΣ', 'ΑΡΙΘΜΟΣ', 'ΚΑΘΑΡΗ', 'ΦΠΑ', 'ΣΥΝΟΛΟ', 'ΠΛΗΡΩΜΗ', ''].map(h => (
+              <div style={{ padding: "10px 12px", borderBottom: "1px solid #1e2232", display: "flex", gap: 10, alignItems: "center" }}>
+                <input placeholder="🔍 Αναζήτηση σε επωνυμία, υλικά, κωδικούς..." value={searchKartela} onChange={e => setSearchKartela(e.target.value)} style={{ background: "#0a0c13", border: "1px solid #2a3040", color: "#e8eaf0", borderRadius: 7, padding: "8px 12px", fontSize: 12, width: "100%", outline: "none", fontFamily: "inherit" }} />
+              </div>
                     ))}</tr>
                   </thead>
                   <tbody>
-                    {selected.invoices.map(inv => (
-                      <tr key={inv.id}
-                        onMouseEnter={e => e.currentTarget.style.background = '#1a1d2b'}
-                        onMouseLeave={e => e.currentTarget.style.background = ''}>
-                        <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 12, color: '#9ca3af', fontFamily: 'monospace' }}>{fmtDate(inv.date)}</td>
-                        <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 11, color: '#4f8ef7', fontWeight: 600 }}>{inv.invoice_type || '—'}</td>
-                        <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 12, fontFamily: 'monospace', color: '#7c5cf7' }}>{inv.series || ''}{inv.number || '—'}</td>
-                        <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 12, fontFamily: 'monospace', textAlign: 'right' }}>{fmt(inv.subtotal)}</td>
-                        <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 12, fontFamily: 'monospace', textAlign: 'right', color: '#5a6070' }}>{fmt(inv.vat)}</td>
-                        <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 700, color: cpType === 'income' ? '#4ade80' : '#f87171' }}>{fmt(inv.total)}</td>
-                        <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 11, color: '#5a6070' }}>{inv.payment_method || '—'}</td>
-                      </tr>
+                    {selected.invoices
+                      .filter(inv => {
+                        if (!searchKartela) return true
+                        const q = searchKartela.toLowerCase()
+                        const inItems = (inv.items || []).some(it =>
+                          (it.description || '').toLowerCase().includes(q) ||
+                          (it.code || '').toLowerCase().includes(q) ||
+                          (it.barcode || '').toLowerCase().includes(q)
+                        )
+                        return (inv.invoice_type || '').toLowerCase().includes(q) ||
+                          (inv.number || '').toLowerCase().includes(q) ||
+                          (inv.notes || '').toLowerCase().includes(q) ||
+                          (inv.issuer_name || '').toLowerCase().includes(q) ||
+                          (inv.issuer_trade_name || '').toLowerCase().includes(q) ||
+                          (inv.counterparty || '').toLowerCase().includes(q) ||
+                          (inv.trade_name || '').toLowerCase().includes(q) ||
+                          inItems
+                      })
+                      .map(inv => (
+                      <React.Fragment key={inv.id}>
+                        <tr
+                          onClick={() => setExpandedInvId(expandedInvId === inv.id ? null : inv.id)}
+                          style={{ cursor: 'pointer' }}
+                          onMouseEnter={e => e.currentTarget.style.background = '#1a1d2b'}
+                          onMouseLeave={e => e.currentTarget.style.background = ''}>
+                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 12, color: '#9ca3af', fontFamily: 'monospace' }}>{fmtDate(inv.date)}</td>
+                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 11, color: '#4f8ef7', fontWeight: 600 }}>{inv.invoice_type || '—'}</td>
+                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 12, fontFamily: 'monospace', color: '#7c5cf7' }}>{inv.series || ''}{inv.number || '—'}</td>
+                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 12, fontFamily: 'monospace', textAlign: 'right' }}>{fmt(inv.subtotal)}</td>
+                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 12, fontFamily: 'monospace', textAlign: 'right', color: '#5a6070' }}>{fmt(inv.vat)}</td>
+                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 700, color: cpType === 'income' ? '#4ade80' : '#f87171' }}>{fmt(inv.total)}</td>
+                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 11, color: '#5a6070' }}>{inv.payment_method || '—'}</td>
+                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 11, color: '#5a6070', textAlign: 'center' }}>{expandedInvId === inv.id ? '▲' : '▼'}</td>
+                        </tr>
+                        {expandedInvId === inv.id && inv.items && inv.items.length > 0 && (
+                          <tr>
+                            <td colSpan={8} style={{ padding: 0, background: '#0a0c13' }}>
+                              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead>
+                                  <tr style={{ background: '#1a1d27' }}>
+                                    {['ΚΩΔΙΚΟΣ', 'ΠΕΡΙΓΡΑΦΗ', 'ΠΟΣ.', 'ΤΙΜΗ ΜΟΝ.', 'ΚΑΘΑΡΗ', 'ΦΠΑ%', 'ΣΥΝΟΛΟ'].map(h => (
+                                      <th key={h} style={{ fontSize: 9, color: '#5a6070', padding: '6px 10px', fontWeight: 700, textAlign: h === 'ΚΩΔΙΚΟΣ' || h === 'ΠΕΡΙΓΡΑΦΗ' ? 'left' : 'right', borderBottom: '1px solid #1e2232' }}>{h}</th>
+                                    ))}
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {inv.items.map((item, i) => (
+                                    <tr key={i} style={{ borderBottom: '1px solid #161824' }}>
+                                      <td style={{ padding: '7px 10px', fontSize: 11, fontFamily: 'monospace', color: '#7c5cf7' }}>{item.code || '—'}</td>
+                                      <td style={{ padding: '7px 10px', fontSize: 11 }}>{item.description || '—'}</td>
+                                      <td style={{ padding: '7px 10px', fontSize: 11, textAlign: 'right', fontFamily: 'monospace' }}>{item.quantity || 1}</td>
+                                      <td style={{ padding: '7px 10px', fontSize: 11, textAlign: 'right', fontFamily: 'monospace' }}>{(item.unit_price || 0).toFixed(2)}€</td>
+                                      <td style={{ padding: '7px 10px', fontSize: 11, textAlign: 'right', fontFamily: 'monospace' }}>{(item.net_value || 0).toFixed(2)}€</td>
+                                      <td style={{ padding: '7px 10px', fontSize: 11, textAlign: 'right', color: '#5a6070' }}>{item.vat_rate || 24}%</td>
+                                      <td style={{ padding: '7px 10px', fontSize: 12, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: cpType === 'income' ? '#4ade80' : '#f87171' }}>{(item.total || 0).toFixed(2)}€</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     ))}
                   </tbody>
                 </table>
