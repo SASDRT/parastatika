@@ -984,34 +984,34 @@ function KartelesTab({ invoices, payments, byCounterparty, fmt, fmtDate }) {
                           {isInvoice && (mov.items||[]).length > 0 && <button onClick={() => setExpandedInvId(expandedInvId===mov.id?null:mov.id)} style={{ background:'transparent', color:'#5a6070', border:'none', cursor:'pointer', fontSize:11 }}>{expandedInvId===mov.id?'▲':'▼'}</button>}
                         </td>
                       </tr>
-                        {expandedInvId === inv.id && inv.items && inv.items.length > 0 && (
-                          <tr>
-                            <td colSpan={8} style={{ padding: 0, background: '#0a0c13' }}>
-                              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                <thead>
-                                  <tr style={{ background: '#1a1d27' }}>
-                                    {['ΚΩΔΙΚΟΣ', 'ΠΕΡΙΓΡΑΦΗ', 'ΠΟΣ.', 'ΤΙΜΗ', 'ΚΑΘΑΡΗ', 'ΦΠΑ%', 'ΣΥΝΟΛΟ'].map(h => (
-                                      <th key={h} style={{ fontSize: 9, color: '#5a6070', padding: '6px 10px', fontWeight: 700, textAlign: h === 'ΚΩΔΙΚΟΣ' || h === 'ΠΕΡΙΓΡΑΦΗ' ? 'left' : 'right', borderBottom: '1px solid #1e2232' }}>{h}</th>
-                                    ))}
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {inv.items.map((item, i) => (
-                                    <tr key={i} style={{ borderBottom: '1px solid #161824' }}>
-                                      <td style={{ padding: '6px 10px', fontSize: 11, fontFamily: 'monospace', color: '#7c5cf7' }}>{item.code || '—'}</td>
-                                      <td style={{ padding: '6px 10px', fontSize: 11 }}>{item.description || '—'}</td>
-                                      <td style={{ padding: '6px 10px', fontSize: 11, textAlign: 'right', fontFamily: 'monospace' }}>{item.quantity || 1}</td>
-                                      <td style={{ padding: '6px 10px', fontSize: 11, textAlign: 'right', fontFamily: 'monospace' }}>{(parseFloat(item.unit_price) || 0).toFixed(2)}€</td>
-                                      <td style={{ padding: '6px 10px', fontSize: 11, textAlign: 'right', fontFamily: 'monospace' }}>{(parseFloat(item.net_value) || 0).toFixed(2)}€</td>
-                                      <td style={{ padding: '6px 10px', fontSize: 11, textAlign: 'right', color: '#5a6070' }}>{item.vat_rate || 24}%</td>
-                                      <td style={{ padding: '6px 10px', fontSize: 12, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color }}>{(parseFloat(item.total) || 0).toFixed(2)}€</td>
-                                    </tr>
+                      {isInvoice && expandedInvId === mov.id && (mov.items||[]).length > 0 && (
+                        <tr>
+                          <td colSpan={8} style={{ padding: 0, background: '#0a0c13' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                              <thead>
+                                <tr style={{ background: '#1a1d27' }}>
+                                  {['ΚΩΔΙΚΟΣ','ΠΕΡΙΓΡΑΦΗ','ΠΟΣ.','ΤΙΜΗ','ΚΑΘΑΡΗ','ΦΠΑ%','ΣΥΝΟΛΟ'].map(h => (
+                                    <th key={h} style={{ fontSize:9, color:'#5a6070', padding:'6px 10px', fontWeight:700, textAlign: h==='ΚΩΔΙΚΟΣ'||h==='ΠΕΡΙΓΡΑΦΗ'?'left':'right', borderBottom:'1px solid #1e2232' }}>{h}</th>
                                   ))}
-                                </tbody>
-                              </table>
-                            </td>
-                          </tr>
-                        )}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {mov.items.map((item, i) => (
+                                  <tr key={i} style={{ borderBottom:'1px solid #161824' }}>
+                                    <td style={{ padding:'6px 10px', fontSize:11, fontFamily:'monospace', color:'#7c5cf7' }}>{item.code||'—'}</td>
+                                    <td style={{ padding:'6px 10px', fontSize:11 }}>{item.description||'—'}</td>
+                                    <td style={{ padding:'6px 10px', fontSize:11, textAlign:'right', fontFamily:'monospace' }}>{item.quantity||1}</td>
+                                    <td style={{ padding:'6px 10px', fontSize:11, textAlign:'right', fontFamily:'monospace' }}>{(parseFloat(item.unit_price)||0).toFixed(2)}€</td>
+                                    <td style={{ padding:'6px 10px', fontSize:11, textAlign:'right', fontFamily:'monospace' }}>{(parseFloat(item.net_value)||0).toFixed(2)}€</td>
+                                    <td style={{ padding:'6px 10px', fontSize:11, textAlign:'right', color:'#5a6070' }}>{item.vat_rate||24}%</td>
+                                    <td style={{ padding:'6px 10px', fontSize:12, textAlign:'right', fontFamily:'monospace', fontWeight:700, color:cpType==='income'?'#4ade80':'#f87171' }}>{(parseFloat(item.total)||0).toFixed(2)}€</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </td>
+                        </tr>
+                      )}
                     )
                     })}
                   </tbody>
