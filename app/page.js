@@ -177,8 +177,9 @@ export default function App() {
     })
   }
 
-  const byCounterparty = (type) => {
+  const byCounterparty = (type, pmts = []) => {
     const map = {}
+    // Από τιμολόγια
     invoices.filter(i => i.type === type).forEach(inv => {
       const name = type === 'expense' ? (inv.issuer_name || inv.counterparty || 'Άγνωστος') : (inv.counterparty || 'Άγνωστος')
       const tradeName = type === 'expense' ? inv.issuer_trade_name : inv.trade_name
@@ -188,6 +189,12 @@ export default function App() {
       if (!map[key]) map[key] = { name, trade_name: tradeName, afm, doy, invoices: [], total: 0 }
       map[key].invoices.push(inv)
       map[key].total += inv.total || 0
+    })
+    // Από πληρωμές/εισπράξεις χωρίς τιμολόγιο
+    const pType = type === 'expense' ? 'payment' : 'receipt'
+    pmts.filter(p => p.type === pType && p.counterparty).forEach(p => {
+      const key = p.afm || p.counterparty
+      if (!map[key]) map[key] = { name: p.counterparty, trade_name: null, afm: p.afm, doy: null, invoices: [], total: 0 }
     })
     return Object.values(map).sort((a, b) => b.total - a.total)
   }
@@ -476,7 +483,7 @@ export default function App() {
         {/* ══════════════════════════════════════
             TAB 4: ΚΑΡΤΕΛΕΣ
         ══════════════════════════════════════ */}
-        {tab === 4 && <KartelesTab invoices={invoices} payments={payments} byCounterparty={byCounterparty} fmt={fmt} fmtDate={fmtDate} />}
+        {tab === 4 && <KartelesTab invoices={invoices} payments={payments} byCounterparty={(t) => byCounterparty(t, payments)} fmt={fmt} fmtDate={fmtDate} />}
 
         {/* ══════════════════════════════════════
             TAB 4: ΥΠΟΛΟΙΠΑ
