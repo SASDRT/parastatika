@@ -2,6 +2,37 @@
 import React, { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
+// Hook για ταξινόμηση
+function useSortable(data, defaultKey = 'date', defaultDir = 'desc') {
+  const [sortKey, setSortKey] = React.useState(defaultKey)
+  const [sortDir, setSortDir] = React.useState(defaultDir)
+
+  const toggleSort = (key) => {
+    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortKey(key); setSortDir('desc') }
+  }
+
+  const sorted = [...(data || [])].sort((a, b) => {
+    let va = a[sortKey], vb = b[sortKey]
+    if (va == null) return 1
+    if (vb == null) return -1
+    if (typeof va === 'string') va = va.toLowerCase()
+    if (typeof vb === 'string') vb = vb.toLowerCase()
+    if (va < vb) return sortDir === 'asc' ? -1 : 1
+    if (va > vb) return sortDir === 'asc' ? 1 : -1
+    return 0
+  })
+
+  const SortTh = ({ label, field, style = {} }) => (
+    <th onClick={() => toggleSort(field)}
+      style={{ cursor: 'pointer', userSelect: 'none', textAlign: 'left', fontSize: 10, fontWeight: 700, letterSpacing: 1, color: sortKey === field ? '#4f8ef7' : '#5a6070', padding: '9px 10px', borderBottom: '1px solid #1e2232', whiteSpace: 'nowrap', ...style }}>
+      {label} {sortKey === field ? (sortDir === 'asc' ? '▲' : '▼') : '↕'}
+    </th>
+  )
+
+  return { sorted, toggleSort, SortTh, sortKey, sortDir }
+}
+
 const fmt = (n) => new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' }).format(n || 0)
 const fmtDate = (d) => { if (!d) return '—'; try { return new Date(d).toLocaleDateString('el-GR') } catch { return d } }
 const TABS = ['Dashboard', 'Σάρωση', 'Έσοδα', 'Έξοδα', 'Πληρωμές', 'Γεν. Έξοδα', 'Καρτέλες', 'Υπόλοιπα', 'Αναφορές']
@@ -681,6 +712,7 @@ export default function App() {
           const color = tab === 2 ? '#4ade80' : '#f87171'
           const total = list.reduce((s, i) => s + (i.total || 0), 0)
           const flist = filtered(list)
+          const { sorted: sortedList, SortTh: InvSortTh } = useSortable(flist, 'date', 'desc')
           return (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
@@ -707,7 +739,18 @@ export default function App() {
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  {flist.map(inv => (
+                  <div style={{ display: 'grid', gridTemplateColumns: '95px 100px 140px 1fr 115px 95px 95px 115px 48px', gap: 6, padding: '6px 16px', alignItems: 'center' }}>
+                    <InvSortTh label="ΗΜΕΡΟΜΗΝΙΑ" field="date" />
+                    <InvSortTh label="ΑΡΙΘΜΟΣ" field="number" />
+                    <InvSortTh label="ΕΙΔΟΣ" field="invoice_type" />
+                    <InvSortTh label="ΕΠΩΝΥΜΙΑ" field="counterparty" />
+                    <InvSortTh label="ΑΦΜ" field="afm" />
+                    <InvSortTh label="ΚΑΘΑΡΗ" field="subtotal" style={{ textAlign: 'right' }} />
+                    <InvSortTh label="ΦΠΑ" field="vat" style={{ textAlign: 'right' }} />
+                    <InvSortTh label="ΣΥΝΟΛΟ" field="total" style={{ textAlign: 'right' }} />
+                    <span></span>
+                  </div>
+                  {sortedList.map(inv => (
                     <div key={inv.id} style={{ ...C.card2, overflow: 'hidden' }}>
                       {/* Γραμμή συνόψεως */}
                       <div onClick={() => setExpandedId(expandedId === inv.id ? null : inv.id)}
@@ -1463,6 +1506,7 @@ function PaymentsTab({ payments, invoices, loadPayments, fmt, fmtDate, notify, y
   }
 
   const filtered = filterType === 'all' ? payments : payments.filter(p => p.type === filterType)
+  const { sorted: sortedPayments, SortTh: PaySortTh } = useSortable(filtered, 'date', 'desc')
   const yearPayments = payments.filter(p => {
     const d = new Date(p.date)
     return d.getFullYear() === year && (month === 0 || d.getMonth() + 1 === month)
@@ -1609,13 +1653,18 @@ function PaymentsTab({ payments, invoices, loadPayments, fmt, fmtDate, notify, y
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
               <thead>
                 <tr>
-                  {['ΗΜΕΡΟΜΗΝΙΑ', 'ΤΥΠΟΣ', 'ΕΠΩΝΥΜΙΑ', 'ΑΦΜ', 'ΤΡΟΠΟΣ', 'ΑΝΑΦΟΡΑ', 'ΠΟΣΟ', ''].map(h => (
-                    <th key={h} style={{ textAlign: h === 'ΠΟΣΟ' ? 'right' : 'left', fontSize: 10, fontWeight: 700, letterSpacing: 1, color: '#5a6070', padding: '9px 12px', borderBottom: '1px solid #1e2232' }}>{h}</th>
-                  ))}
+                  <PaySortTh label="ΗΜΕΡΟΜΗΝΙΑ" field="date" />
+                    <th style={{ fontSize: 10, fontWeight: 700, color: '#5a6070', padding: '9px 12px', borderBottom: '1px solid #1e2232' }}>ΤΥΠΟΣ</th>
+                    <PaySortTh label="ΕΠΩΝΥΜΙΑ" field="counterparty" />
+                    <PaySortTh label="ΑΦΜ" field="afm" />
+                    <th style={{ fontSize: 10, fontWeight: 700, color: '#5a6070', padding: '9px 12px', borderBottom: '1px solid #1e2232' }}>ΤΡΟΠΟΣ</th>
+                    <th style={{ fontSize: 10, fontWeight: 700, color: '#5a6070', padding: '9px 12px', borderBottom: '1px solid #1e2232' }}>ΑΝΑΦΟΡΑ</th>
+                    <PaySortTh label="ΠΟΣΟ" field="amount" style={{ textAlign: 'right' }} />
+                    <th style={{ fontSize: 10, color: '#5a6070', padding: '9px 12px', borderBottom: '1px solid #1e2232' }}></th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(p => (
+                {sortedPayments.map(p => (
                   <tr key={p.id} onMouseEnter={e => e.currentTarget.style.background = '#1a1d2b'} onMouseLeave={e => e.currentTarget.style.background = ''}>
                     <td style={{ padding: '11px 12px', borderBottom: '1px solid #161824', fontSize: 12, color: '#9ca3af', fontFamily: 'monospace' }}>{fmtDate(p.date)}</td>
                     <td style={{ padding: '11px 12px', borderBottom: '1px solid #161824', fontSize: 12 }}>
@@ -1739,6 +1788,7 @@ function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year
   }
 
   const filtered = filterCat === 'all' ? expenses : expenses.filter(e => e.category === filterCat)
+  const { sorted: sortedExpenses, SortTh: GenSortTh } = useSortable(filtered, 'date', 'desc')
   const total = filtered.reduce((s, e) => s + (e.amount || 0), 0)
   const totalVat = filtered.reduce((s, e) => s + (e.vat || 0), 0)
 
@@ -1874,13 +1924,19 @@ function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr>
-                      {['ΗΜΕΡΟΜΗΝΙΑ', 'ΚΑΤΗΓΟΡΙΑ', 'ΠΕΡΙΓΡΑΦΗ', 'ΠΡΟΜΗΘΕΥΤΗΣ', 'ΤΡΟΠΟΣ', 'ΑΡ. ΑΠΟΔ.', 'ΦΠΑ', 'ΠΟΣΟ', ''].map(h => (
-                        <th key={h} style={{ textAlign: h==='ΠΟΣΟ'||h==='ΦΠΑ' ? 'right' : 'left', fontSize: 10, fontWeight: 700, letterSpacing: 1, color: '#5a6070', padding: '9px 12px', borderBottom: '1px solid #1e2232' }}>{h}</th>
-                      ))}
+                      <GenSortTh label="ΗΜΕΡΟΜΗΝΙΑ" field="date" />
+                      <GenSortTh label="ΚΑΤΗΓΟΡΙΑ" field="category" />
+                      <GenSortTh label="ΠΕΡΙΓΡΑΦΗ" field="description" />
+                      <GenSortTh label="ΠΡΟΜΗΘΕΥΤΗΣ" field="vendor" />
+                      <th style={{ fontSize: 10, fontWeight: 700, color: '#5a6070', padding: '9px 12px', borderBottom: '1px solid #1e2232' }}>ΤΡΟΠΟΣ</th>
+                      <th style={{ fontSize: 10, fontWeight: 700, color: '#5a6070', padding: '9px 12px', borderBottom: '1px solid #1e2232' }}>ΑΡ. ΑΠΟΔ.</th>
+                      <GenSortTh label="ΦΠΑ" field="vat" style={{ textAlign: 'right' }} />
+                      <GenSortTh label="ΠΟΣΟ" field="amount" style={{ textAlign: 'right' }} />
+                      <th style={{ fontSize: 10, color: '#5a6070', padding: '9px 12px', borderBottom: '1px solid #1e2232' }}></th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map(e => (
+                    {sortedExpenses.map(e => (
                       <tr key={e.id} onMouseEnter={ev => ev.currentTarget.style.background='#1a1d2b'} onMouseLeave={ev => ev.currentTarget.style.background=''}>
                         <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 12, color: '#9ca3af', fontFamily: 'monospace' }}>{fmtDate(e.date)}</td>
                         <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 12 }}>
