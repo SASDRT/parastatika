@@ -674,17 +674,17 @@ export default function App() {
         )}
 
         {/* ══════════════════════════════════════
-            TAB 1 & 2: ΛΙΣΤΑ ΠΑΡΑΣΤΑΤΙΚΩΝ
+            TAB 2 & 3: ΛΙΣΤΑ ΠΑΡΑΣΤΑΤΙΚΩΝ
         ══════════════════════════════════════ */}
         {(tab === 2 || tab === 3) && (() => {
-          const list = tab === 1 ? income : expenses
-          const color = tab === 1 ? '#4ade80' : '#f87171'
+          const list = tab === 2 ? income : expenses
+          const color = tab === 2 ? '#4ade80' : '#f87171'
           const total = list.reduce((s, i) => s + (i.total || 0), 0)
           const flist = filtered(list)
           return (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
-                <h2 style={{ fontSize: 19, fontWeight: 700 }}>{tab === 1 ? 'Έσοδα' : 'Έξοδα'}</h2>
+                <h2 style={{ fontSize: 19, fontWeight: 700 }}>{tab === 2 ? 'Έσοδα' : 'Έξοδα'}</h2>
                 <span style={{ fontFamily: 'monospace', color, fontSize: 17, fontWeight: 700 }}>{fmt(total)}</span>
                 <span style={{ color: '#5a6070', fontSize: 13, background: '#1e2232', padding: '3px 10px', borderRadius: 20 }}>{list.length} παραστατικά</span>
                 <div style={{ marginLeft: 'auto', width: 260 }}>
@@ -692,7 +692,7 @@ export default function App() {
                     style={{ ...C.input, fontSize: 13 }} />
                 </div>
                 <button style={C.btnPrimary} onClick={() => {
-                  setEditForm({ type: tab === 1 ? 'income' : 'expense', date: new Date().toISOString().split('T')[0], items: [] })
+                  setEditForm({ type: tab === 2 ? 'income' : 'expense', date: new Date().toISOString().split('T')[0], items: [] })
                   setTab(1)
                 }}>+ Χειροκίνητη καταχώρηση</button>
                 <button style={C.btnGhost} onClick={() => { setEditForm(null); setPreviewImg(null); setTab(1) }}>+ Σάρωση</button>
