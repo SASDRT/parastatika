@@ -35,7 +35,8 @@ function useSortable(data, defaultKey = 'date', defaultDir = 'desc') {
 
 const fmt = (n) => new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' }).format(n || 0)
 const fmtDate = (d) => { if (!d) return '—'; try { return new Date(d).toLocaleDateString('el-GR') } catch { return d } }
-const TABS = ['Dashboard', 'Σάρωση', 'Έσοδα', 'Έξοδα', 'Πληρωμές', 'Γεν. Έξοδα', 'Καρτέλες', 'Υπόλοιπα', 'Αναφορές']
+const ALL_TABS = ['Dashboard', 'Σάρωση', 'Έσοδα', 'Έξοδα', 'Πληρωμές', 'Γεν. Έξοδα', 'Καρτέλες', 'Υπόλοιπα', 'Αναφορές']
+const EMPLOYEE_TABS = ['Σάρωση', 'Έσοδα', 'Έξοδα', 'Γεν. Έξοδα']
 
 const C = {
   app: { minHeight: '100vh', background: '#0a0c13', color: '#e8eaf0', fontFamily: 'system-ui,-apple-system,sans-serif' },
@@ -63,6 +64,7 @@ const C = {
 export default function App() {
   const [session, setSession] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
+  const [userRole, setUserRole] = useState(null)
   const [loginEmail, setLoginEmail] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
   const [loginError, setLoginError] = useState('')
@@ -98,7 +100,12 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (session) { loadInvoices(); loadPayments(); loadExpenses() }
+    if (session) {
+      loadInvoices(); loadPayments(); loadExpenses()
+      // Load user role
+      supabase.from('user_roles').select('role,name').eq('user_id', session.user.id).single()
+        .then(({ data }) => setUserRole(data?.role || 'admin'))
+    }
   }, [session])
 
   const loadInvoices = async () => {
@@ -471,6 +478,9 @@ export default function App() {
           <div style={{ display: 'flex', gap: 6 }}>
             <button onClick={handleBackup} style={{ background: 'transparent', color: '#5a6070', border: '1px solid #2a3040', padding: '5px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>Backup</button>
             <button onClick={handleExportExcel} style={{ background: 'transparent', color: '#5a6070', border: '1px solid #2a3040', padding: '5px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>Export CSV</button>
+            <div style={{ fontSize: 11, color: '#5a6070', padding: '4px 10px', background: '#0a0c13', borderRadius: 6, border: '1px solid #1e2232' }}>
+              {userRole === 'admin' ? 'Admin' : 'Υπάλληλος'} · {session?.user?.email}
+            </div>
             <button onClick={handleLogout} style={{ background: 'transparent', color: '#5a6070', border: '1px solid #2a3040', padding: '5px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>Αποσύνδεση</button>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -519,7 +529,9 @@ export default function App() {
 
       {/* TABS */}
       <div style={C.tabBar}>
-        {TABS.map((t, i) => <button key={t} onClick={() => setTab(i)} style={C.tab(tab === i)}>{t}</button>)}
+        {(userRole === 'employee' ? ALL_TABS.map((t,i) => ({t,i})).filter(({t}) => EMPLOYEE_TABS.includes(t)) : ALL_TABS.map((t,i) => ({t,i}))).map(({t,i}) => (
+          <button key={t} onClick={() => setTab(i)} style={C.tab(tab === i)}>{t}</button>
+        ))}
       </div>
 
       {/* NOTIFICATION */}
@@ -826,7 +838,7 @@ export default function App() {
             filtered={filtered} expandedId={expandedId} setExpandedId={setExpandedId}
             deleteInvoice={deleteInvoice} setTab={setTab} setEditForm={setEditForm}
             fmt={fmt} fmtDate={fmtDate} loading={loading}
-            tab={tab} copyInvoice={copyInvoice}
+            tab={tab} copyInvoice={copyInvoice} userRole={userRole}
           />
         )}
 
@@ -2426,7 +2438,7 @@ function DashboardTab({ income, expenses, yearPayments, generalExpenses, invoice
 /* ═══════════════════════════════════════
    INVOICE LIST COMPONENT (με sorting)
 ═══════════════════════════════════════ */
-function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expandedId, setExpandedId, deleteInvoice, setTab, setEditForm, fmt, fmtDate, loading, tab, copyInvoice }) {
+function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expandedId, setExpandedId, deleteInvoice, setTab, setEditForm, fmt, fmtDate, loading, tab, copyInvoice, userRole }) {
   const total = list.reduce((s, i) => s + (i.total || 0), 0)
   const flist = filtered(list)
   const { sorted: sortedList, SortTh } = useSortable(flist, 'date', 'desc')
@@ -2495,16 +2507,16 @@ function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expand
                   <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#5a6070' }}>
                     {inv.type === 'expense' ? (inv.issuer_afm || inv.afm || '—') : (inv.afm || '—')}
                   </span>
-                  <span style={{ fontFamily: 'monospace', fontSize: 12, textAlign: 'right' }}>{fmt(inv.subtotal)}</span>
-                  <span style={{ fontFamily: 'monospace', fontSize: 12, textAlign: 'right', color: '#5a6070' }}>{fmt(inv.vat)}</span>
-                  <span style={{ fontFamily: 'monospace', fontSize: 14, textAlign: 'right', fontWeight: 700, color }}>{fmt(inv.total)}</span>
+                  <span style={{ fontFamily: 'monospace', fontSize: 12, textAlign: 'right', color: '#5a6070' }}>{userRole === 'employee' ? '—' : fmt(inv.subtotal)}</span>
+                  <span style={{ fontFamily: 'monospace', fontSize: 12, textAlign: 'right', color: '#5a6070' }}>{userRole === 'employee' ? '—' : fmt(inv.vat)}</span>
+                  <span style={{ fontFamily: 'monospace', fontSize: 14, textAlign: 'right', fontWeight: 700, color }}>{userRole === 'employee' ? '—' : fmt(inv.total)}</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
                     <span style={{ color: '#5a6070', fontSize: 11 }}>{expandedId === inv.id ? '▲' : '▼'}</span>
-                    <button style={{ background: 'transparent', color: '#4f8ef7', border: 'none', padding: '4px 6px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}
+                    {userRole !== 'employee' && <button style={{ background: 'transparent', color: '#4f8ef7', border: 'none', padding: '4px 6px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}
                       title="Αντίγραφο"
-                      onClick={e => { e.stopPropagation(); copyInvoice(inv) }}>⎘</button>
-                    <button style={{ background: 'transparent', color: '#f87171', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}
-                      onClick={e => { e.stopPropagation(); deleteInvoice(inv.id) }}>✕</button>
+                      onClick={e => { e.stopPropagation(); copyInvoice(inv) }}>⎘</button>}
+                    {userRole !== 'employee' && <button style={{ background: 'transparent', color: '#f87171', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}
+                      onClick={e => { e.stopPropagation(); deleteInvoice(inv.id) }}>✕</button>}
                   </div>
                 </div>
                 {expandedId === inv.id && <InvoiceDetail inv={inv} color={color} fmt={fmt} fmtDate={fmtDate} />}
