@@ -2042,7 +2042,7 @@ function ReportsTab({ income, expenses, yearPayments, generalExpenses, fmt, fmtD
       {/* Report selector */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
         {reports.map(r => (
-          <div key={r.id} onClick={() => setActiveReport(r.id)}
+          <div key={r.id} onClick={() => { setActiveReport(r.id); setSelected(null) }}
             style={{ background: activeReport === r.id ? '#13151f' : '#0f1117', border: `2px solid ${activeReport === r.id ? r.color + '66' : '#1e2232'}`, borderRadius: 10, padding: '16px 18px', cursor: 'pointer', transition: 'all .15s' }}>
             <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 6 }}>{r.label}</div>
             <div style={{ fontFamily: 'monospace', fontSize: 22, fontWeight: 700, color: r.color }}>{fmt(r.total)}</div>
