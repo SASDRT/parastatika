@@ -164,8 +164,12 @@ export default function App() {
   const byCounterparty = (type) => {
     const map = {}
     invoices.filter(i => i.type === type).forEach(inv => {
-      const key = inv.afm || inv.counterparty || 'Άγνωστος'
-      if (!map[key]) map[key] = { name: inv.counterparty || 'Άγνωστος', trade_name: inv.trade_name, afm: inv.afm, doy: inv.doy, invoices: [], total: 0 }
+      const name = type === 'expense' ? (inv.issuer_name || inv.counterparty || 'Άγνωστος') : (inv.counterparty || 'Άγνωστος')
+      const tradeName = type === 'expense' ? inv.issuer_trade_name : inv.trade_name
+      const afm = type === 'expense' ? (inv.issuer_afm || inv.afm) : inv.afm
+      const doy = type === 'expense' ? (inv.issuer_doy || inv.doy) : inv.doy
+      const key = afm || name
+      if (!map[key]) map[key] = { name, trade_name: tradeName, afm, doy, invoices: [], total: 0 }
       map[key].invoices.push(inv)
       map[key].total += inv.total || 0
     })
@@ -778,6 +782,27 @@ function InvoiceDetail({ inv, color, fmt, fmtDate }) {
    ΚΑΡΤΕΛΕΣ
 ═══════════════════════════════════════ */
 function KartelesTab({ invoices, byCounterparty, fmt, fmtDate }) {
+  const printKartela = (cp, type, fmt, fmtDate) => {
+    const color = type === "income" ? "#1a6e3a" : "#8b1a1a"
+    const title = type === "income" ? "ΚΑΡΤΕΛΑ ΠΕΛΑΤΗ" : "ΚΑΡΤΕΛΑ ΠΡΟΜΗΘΕΥΤΗ"
+    const totalDebit = type === "income" ? cp.invoices.reduce((s,i) => s+(i.total||0), 0) : 0
+    const totalCredit = type === "expense" ? cp.invoices.reduce((s,i) => s+(i.total||0), 0) : 0
+    const win = window.open("","_blank")
+    win.document.write(`<!DOCTYPE html><html><head><title>${title}</title><meta charset="utf-8"><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;padding:25px;font-size:12px;color:#000}.header{text-align:center;margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid #000}.title{font-size:20px;font-weight:bold;color:${color}}.sub{font-size:14px;margin-top:4px}.info{margin-bottom:16px;background:#f5f5f5;padding:12px;border-radius:4px;border:1px solid #ddd}table{width:100%;border-collapse:collapse;margin-bottom:16px}th{background:#333;color:#fff;padding:7px 10px;text-align:left;font-size:11px}td{padding:7px 10px;border-bottom:1px solid #eee}tr:nth-child(even) td{background:#f9f9f9}.debit{color:#c00;font-weight:bold}.credit{color:#080;font-weight:bold}.balance{font-weight:bold}.totals{display:flex;justify-content:flex-end;margin-top:8px}.tbox{border:2px solid #333;border-radius:4px;overflow:hidden;min-width:280px}.trow{display:flex;justify-content:space-between;padding:6px 12px;font-size:13px}.trow:nth-child(even){background:#f5f5f5}.grand{background:#333!important;color:#fff;font-weight:bold;font-size:15px}@media print{@page{margin:12mm}}</style></head><body>
+    <div class="header"><div class="title">${title}</div><div class="sub">${cp.name}${cp.trade_name ? " &quot;" + cp.trade_name + "&quot;" : ""}</div></div>
+    <div class="info"><strong>ΑΦΜ:</strong> ${cp.afm||"—"} &nbsp; <strong>ΔΟΥ:</strong> ${cp.doy||"—"} &nbsp; <strong>Παραστατικά:</strong> ${cp.invoices.length} &nbsp; <strong>Ημερομηνία εκτύπωσης:</strong> ${new Date().toLocaleDateString("el-GR")}</div>
+    <table><thead><tr><th>ΗΜΕΡΟΜΗΝΙΑ</th><th>ΕΙΔΟΣ</th><th>ΑΡΙΘΜΟΣ</th><th>ΠΕΡΙΓΡΑΦΗ</th><th style="text-align:right">ΧΡΕΩΣΗ</th><th style="text-align:right">ΠΙΣΤΩΣΗ</th><th style="text-align:right">ΥΠΟΛΟΙΠΟ</th></tr></thead><tbody>
+    ${cp.invoices.reduce((acc, inv, idx) => {
+      const running = cp.invoices.slice(0, idx+1).reduce((s,i) => s+(i.total||0), 0)
+      const debit = type === "income" ? (inv.total||0).toFixed(2)+"€" : "—"
+      const credit = type === "expense" ? (inv.total||0).toFixed(2)+"€" : "—"
+      return acc + "<tr><td>" + fmtDate(inv.date) + "</td><td>" + (inv.invoice_type||"—") + "</td><td>" + (inv.series||"") + (inv.number||"—") + "</td><td>" + (inv.notes||"") + "</td><td style=\"text-align:right\" class=\"debit\">" + debit + "</td><td style=\"text-align:right\" class=\"credit\">" + credit + "</td><td style=\"text-align:right\" class=\"balance\">" + running.toFixed(2) + "€</td></tr>"
+    }, "")}
+    </tbody></table>
+    <div class="totals"><div class="tbox"><div class="trow"><span>Σύνολο χρεώσεων:</span><span class="debit">${totalDebit.toFixed(2)}€</span></div><div class="trow"><span>Σύνολο πιστώσεων:</span><span class="credit">${totalCredit.toFixed(2)}€</span></div><div class="trow grand"><span>ΥΠΟΛΟΙΠΟ:</span><span>${cp.invoices.reduce((s,i) => s+(i.total||0),0).toFixed(2)}€</span></div></div></div>
+    <script>window.onload=()=>window.print()</script></body></html>`)
+    win.document.close()
+  }
   const [cpType, setCpType] = useState('income')
   const [selCP, setSelCP] = useState(null)
   const list = byCounterparty(cpType)
@@ -818,6 +843,9 @@ function KartelesTab({ invoices, byCounterparty, fmt, fmtDate }) {
           </div>
         ) : (
           <div>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+              <button onClick={() => printKartela(selected, cpType, fmt, fmtDate)} style={{ background: "#1e2232", color: "#e8eaf0", border: "none", padding: "8px 16px", borderRadius: 7, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>🖨️ Εκτύπωση Καρτέλας / PDF</button>
+            </div>
             <div style={{ background: '#13151f', border: '1px solid #1e2232', borderRadius: 12, padding: '16px 20px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <h3 style={{ fontSize: 18, fontWeight: 700 }}>{selected.name}</h3>
