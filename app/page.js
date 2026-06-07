@@ -262,6 +262,22 @@ export default function App() {
   const saveInvoice = async () => {
     if (!editForm) return
     setSaving(true)
+
+    // Έλεγχος διπλοεγγραφής
+    if (editForm.number && editForm.issuer_afm) {
+      const { data: existing } = await supabase.from('invoices')
+        .select('id')
+        .eq('number', editForm.number)
+        .eq('issuer_afm', editForm.issuer_afm)
+        .eq('type', editForm.type || 'expense')
+        .limit(1)
+      if (existing && existing.length > 0) {
+        notify('⚠️ Το παραστατικό αυτό έχει ήδη καταχωρηθεί! (ίδιος αριθμός και ΑΦΜ εκδότη)', 'error')
+        setSaving(false)
+        return
+      }
+    }
+
     const row = {
       type: editForm.type || 'expense',
       invoice_type: editForm.invoice_type || null,
