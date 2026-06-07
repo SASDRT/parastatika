@@ -416,6 +416,111 @@ export default function App() {
                   </div>
                 </div>
 
+                {/* Είδη / Υλικά */}
+                <div style={C.section}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                    <div style={C.sectionTitle('#4f8ef7')}>ΕΙΔΗ / ΥΛΙΚΑ</div>
+                    <button type="button" onClick={() => ef('items', [...(editForm.items || []), { code: '', description: '', quantity: 1, unit: 'τεμ', unit_price: 0, discount_pct: 0, net_value: 0, vat_rate: 24, vat_amount: 0, total: 0 }])}
+                      style={{ background: '#1e2232', color: '#4f8ef7', border: '1px solid #2a3040', padding: '4px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>
+                      + Προσθήκη είδους
+                    </button>
+                  </div>
+                  {(editForm.items || []).length === 0 && (
+                    <div style={{ color: '#5a6070', fontSize: 12, textAlign: 'center', padding: '12px 0' }}>Δεν υπάρχουν είδη — πάτα "+ Προσθήκη" ή ξανασκάναρε</div>
+                  )}
+                  {(editForm.items || []).map((item, idx) => {
+                    const updateItem = (k, v) => {
+                      const items = [...(editForm.items || [])]
+                      items[idx] = { ...items[idx], [k]: v }
+                      // Auto-calculate net_value, vat_amount, total
+                      const it = items[idx]
+                      const qty = parseFloat(it.quantity) || 1
+                      const up = parseFloat(it.unit_price) || 0
+                      const disc = parseFloat(it.discount_pct) || 0
+                      const net = qty * up * (1 - disc / 100)
+                      const vatR = parseFloat(it.vat_rate) || 24
+                      const vatAmt = net * vatR / 100
+                      items[idx].net_value = Math.round(net * 100) / 100
+                      items[idx].vat_amount = Math.round(vatAmt * 100) / 100
+                      items[idx].total = Math.round((net + vatAmt) * 100) / 100
+                      ef('items', items)
+                      // Recalculate totals
+                      const subtotal = items.reduce((s, i) => s + (parseFloat(i.net_value) || 0), 0)
+                      const totalVat = items.reduce((s, i) => s + (parseFloat(i.vat_amount) || 0), 0)
+                      ef('subtotal', Math.round(subtotal * 100) / 100)
+                      ef('vat', Math.round(totalVat * 100) / 100)
+                      ef('total', Math.round((subtotal + totalVat) * 100) / 100)
+                    }
+                    return (
+                      <div key={idx} style={{ background: '#0a0c13', borderRadius: 8, padding: '10px 12px', marginBottom: 8, border: '1px solid #2a3040' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                          <span style={{ fontSize: 11, color: '#5a6070', fontWeight: 700 }}>ΕΙΔΟΣ {idx + 1}</span>
+                          <button type="button" onClick={() => {
+                            const items = (editForm.items || []).filter((_, i) => i !== idx)
+                            ef('items', items)
+                            const subtotal = items.reduce((s, i) => s + (parseFloat(i.net_value) || 0), 0)
+                            const totalVat = items.reduce((s, i) => s + (parseFloat(i.vat_amount) || 0), 0)
+                            ef('subtotal', Math.round(subtotal * 100) / 100)
+                            ef('vat', Math.round(totalVat * 100) / 100)
+                            ef('total', Math.round((subtotal + totalVat) * 100) / 100)
+                          }} style={{ background: 'transparent', color: '#f87171', border: 'none', fontSize: 12, cursor: 'pointer', padding: '2px 6px' }}>
+                            Διαγραφή
+                          </button>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 60px 70px', gap: 6, marginBottom: 6 }}>
+                          <div>
+                            <label style={{ ...C.label, marginBottom: 2 }}>ΚΩΔΙΚΟΣ</label>
+                            <input value={item.code || ''} onChange={e => updateItem('code', e.target.value)}
+                              style={{ ...C.input, fontSize: 11, fontFamily: 'monospace', padding: '6px 8px' }} />
+                          </div>
+                          <div>
+                            <label style={{ ...C.label, marginBottom: 2 }}>ΠΕΡΙΓΡΑΦΗ</label>
+                            <input value={item.description || ''} onChange={e => updateItem('description', e.target.value)}
+                              style={{ ...C.input, fontSize: 11, padding: '6px 8px' }} />
+                          </div>
+                          <div>
+                            <label style={{ ...C.label, marginBottom: 2 }}>ΠΟΣ.</label>
+                            <input type="number" step="0.001" value={item.quantity || ''} onChange={e => updateItem('quantity', e.target.value)}
+                              style={{ ...C.input, fontSize: 11, fontFamily: 'monospace', padding: '6px 8px' }} />
+                          </div>
+                          <div>
+                            <label style={{ ...C.label, marginBottom: 2 }}>ΜΟΝΑΔΑ</label>
+                            <input value={item.unit || 'τεμ'} onChange={e => updateItem('unit', e.target.value)}
+                              style={{ ...C.input, fontSize: 11, padding: '6px 8px' }} />
+                          </div>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px 80px 80px', gap: 6 }}>
+                          <div>
+                            <label style={{ ...C.label, marginBottom: 2 }}>ΤΙΜΗ ΜΟΝ. €</label>
+                            <input type="number" step="0.01" value={item.unit_price || ''} onChange={e => updateItem('unit_price', e.target.value)}
+                              style={{ ...C.input, fontSize: 11, fontFamily: 'monospace', padding: '6px 8px' }} />
+                          </div>
+                          <div>
+                            <label style={{ ...C.label, marginBottom: 2 }}>ΕΚΠΤ.%</label>
+                            <input type="number" step="0.1" value={item.discount_pct || ''} onChange={e => updateItem('discount_pct', e.target.value)}
+                              style={{ ...C.input, fontSize: 11, fontFamily: 'monospace', padding: '6px 8px' }} />
+                          </div>
+                          <div>
+                            <label style={{ ...C.label, marginBottom: 2 }}>ΦΠΑ%</label>
+                            <input type="number" value={item.vat_rate || 24} onChange={e => updateItem('vat_rate', e.target.value)}
+                              style={{ ...C.input, fontSize: 11, fontFamily: 'monospace', padding: '6px 8px' }} />
+                          </div>
+                          <div>
+                            <label style={{ ...C.label, marginBottom: 2 }}>ΚΑΘΑΡΗ €</label>
+                            <input value={(parseFloat(item.net_value) || 0).toFixed(2)} readOnly
+                              style={{ ...C.input, fontSize: 11, fontFamily: 'monospace', padding: '6px 8px', color: '#9ca3af' }} />
+                          </div>
+                          <div>
+                            <label style={{ ...C.label, marginBottom: 2 }}>ΣΥΝΟΛΟ €</label>
+                            <input value={(parseFloat(item.total) || 0).toFixed(2)} readOnly
+                              style={{ ...C.input, fontSize: 11, fontFamily: 'monospace', padding: '6px 8px', color: '#4f8ef7', fontWeight: 700 }} />
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
                 {/* Σημειώσεις */}
                 <div>
                   <label style={C.label}>ΣΗΜΕΙΩΣΕΙΣ / ΠΑΡΑΤΗΡΗΣΕΙΣ</label>
