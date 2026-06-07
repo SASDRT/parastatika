@@ -41,6 +41,8 @@ export default function App() {
   const [saving, setSaving] = useState(false)
   const [expandedId, setExpandedId] = useState(null)
   const [payments, setPayments] = useState([])
+  const [year, setYear] = useState(new Date().getFullYear())
+  const years = [2021, 2022, 2023, 2024, 2025, 2026]
 
   useEffect(() => { loadInvoices(); loadPayments() }, [])
 
@@ -148,12 +150,13 @@ export default function App() {
     await loadInvoices(); notify('Διαγράφηκε.')
   }
 
-  const income = invoices.filter(i => i.type === 'income')
-  const expenses = invoices.filter(i => i.type === 'expense')
+  const income = invoices.filter(i => i.type === 'income' && new Date(i.date).getFullYear() === year)
+  const expenses = invoices.filter(i => i.type === 'expense' && new Date(i.date).getFullYear() === year)
   const totalIncome = income.reduce((s, i) => s + (i.total || 0), 0)
   const totalExpense = expenses.reduce((s, i) => s + (i.total || 0), 0)
-  const totalReceipts = payments.filter(p => p.type === 'receipt').reduce((s, p) => s + (p.amount || 0), 0)
-  const totalPaid = payments.filter(p => p.type === 'payment').reduce((s, p) => s + (p.amount || 0), 0)
+  const yearPayments = payments.filter(p => new Date(p.date).getFullYear() === year)
+  const totalReceipts = yearPayments.filter(p => p.type === 'receipt').reduce((s, p) => s + (p.amount || 0), 0)
+  const totalPaid = yearPayments.filter(p => p.type === 'payment').reduce((s, p) => s + (p.amount || 0), 0)
   const balance = totalIncome - totalExpense
 
   const filtered = (list) => {
@@ -179,10 +182,10 @@ export default function App() {
     })
   }
 
-  const byCounterparty = (type, pmts = []) => {
+  const byCounterparty = (type, pmts = [], filteredInvoices = invoices) => {
     const map = {}
     // Από τιμολόγια
-    invoices.filter(i => i.type === type).forEach(inv => {
+    filteredInvoices.filter(i => i.type === type).forEach(inv => {
       const name = type === 'expense' ? (inv.issuer_name || inv.counterparty || 'Άγνωστος') : (inv.counterparty || 'Άγνωστος')
       const tradeName = type === 'expense' ? inv.issuer_trade_name : inv.trade_name
       const afm = type === 'expense' ? (inv.issuer_afm || inv.afm) : inv.afm
@@ -238,7 +241,15 @@ export default function App() {
             <div style={C.logoIcon}>P</div>
             <span>Παραστατικά</span>
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 4, background: '#0a0c13', borderRadius: 8, padding: 4, border: '1px solid #1e2232' }}>
+              {years.map(y => (
+                <button key={y} onClick={() => setYear(y)}
+                  style={{ background: year === y ? 'linear-gradient(135deg,#4f8ef7,#7c5cf7)' : 'transparent', color: year === y ? '#fff' : '#5a6070', border: 'none', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: year === y ? 700 : 400, cursor: 'pointer' }}>
+                  {y}
+                </button>
+              ))}
+            </div>
             {[['ΕΣΟΔΑ', totalIncome, '#4ade80', '#0a2215'], ['ΕΞΟΔΑ', totalExpense, '#f87171', '#2a0f0f'], ['ΥΠΟΛΟΙΠΟ', balance, balance >= 0 ? '#60b4f7' : '#f87171', balance >= 0 ? '#0a1e2e' : '#2a0f0f']].map(([l, v, c, bg]) => (
               <div key={l} style={{ textAlign: 'center', padding: '4px 12px', borderRadius: 7, background: bg, border: `1px solid ${c}22` }}>
                 <div style={{ fontSize: 9, color: c, fontWeight: 700, letterSpacing: 1 }}>{l}</div>
@@ -597,12 +608,12 @@ export default function App() {
         {/* ══════════════════════════════════════
             TAB 3: ΠΛΗΡΩΜΕΣ
         ══════════════════════════════════════ */}
-        {tab === 3 && <PaymentsTab payments={payments} invoices={invoices} loadPayments={loadPayments} fmt={fmt} fmtDate={fmtDate} notify={notify} />}
+        {tab === 3 && <PaymentsTab payments={yearPayments} invoices={invoices} loadPayments={loadPayments} fmt={fmt} fmtDate={fmtDate} notify={notify} year={year} />}
 
         {/* ══════════════════════════════════════
             TAB 4: ΚΑΡΤΕΛΕΣ
         ══════════════════════════════════════ */}
-        {tab === 4 && <KartelesTab invoices={invoices} payments={payments} byCounterparty={(t) => byCounterparty(t, payments)} fmt={fmt} fmtDate={fmtDate} />}
+        {tab === 4 && <KartelesTab invoices={[...income, ...expenses]} payments={yearPayments} byCounterparty={(t) => byCounterparty(t, yearPayments, [...income, ...expenses])} fmt={fmt} fmtDate={fmtDate} year={year} />}
 
         {/* ══════════════════════════════════════
             TAB 4: ΥΠΟΛΟΙΠΑ
@@ -614,8 +625,8 @@ export default function App() {
               <div key={type}>
                 <h3 style={{ fontWeight: 700, marginBottom: 14, color, fontSize: 15 }}>{label}</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {byCounterparty(type).length === 0 && <div style={{ ...C.card, color: '#5a6070', textAlign: 'center', padding: 36 }}>Δεν υπάρχουν ακόμα</div>}
-                  {byCounterparty(type).map(cp => (
+                  {byCounterparty(type, yearPayments, [...income, ...expenses]).length === 0 && <div style={{ ...C.card, color: '#5a6070', textAlign: 'center', padding: 36 }}>Δεν υπάρχουν ακόμα</div>}
+                  {byCounterparty(type, yearPayments, [...income, ...expenses]).map(cp => (
                     <div key={cp.name} style={{ ...C.card, display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '14px 18px' }}>
                       <div>
                         <div style={{ fontWeight: 700, fontSize: 14 }}>{cp.name}</div>
@@ -928,7 +939,7 @@ function InvoiceDetail({ inv, color, fmt, fmtDate }) {
 /* ═══════════════════════════════════════
    ΚΑΡΤΕΛΕΣ
 ═══════════════════════════════════════ */
-function KartelesTab({ invoices, payments, byCounterparty, fmt, fmtDate }) {
+function KartelesTab({ invoices, payments, byCounterparty, fmt, fmtDate, year }) {
   const [cpType, setCpType] = useState('income')
   const [selCP, setSelCP] = useState(null)
   const [searchKartela, setSearchKartela] = useState('')
@@ -1021,8 +1032,9 @@ function KartelesTab({ invoices, payments, byCounterparty, fmt, fmtDate }) {
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(230px, 290px) 1fr', gap: 20 }}>
       {/* Αριστερή στήλη */}
       <div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#4f8ef7', marginBottom: 10, textAlign: 'center', background: '#0a0c13', border: '1px solid #1e2232', borderRadius: 7, padding: '6px' }}>Χρήση {year}</div>
         <div style={{ marginBottom: 10 }}>
-          <input placeholder="🔍 Αναζήτηση..." value={searchKartela}
+          <input placeholder="Αναζήτηση..." value={searchKartela}
             onChange={e => { setSearchKartela(e.target.value); setSelCP(null) }}
             style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '8px 12px', fontSize: 12, width: '100%', outline: 'none', fontFamily: 'inherit' }} />
         </div>
@@ -1243,7 +1255,7 @@ function TraderSearch({ value, onChange, onSelect, type = 'all', placeholder = '
 /* ═══════════════════════════════════════════════════════════
    ΠΛΗΡΩΜΕΣ & ΕΙΣΠΡΑΞΕΙΣ
 ═══════════════════════════════════════════════════════════ */
-function PaymentsTab({ payments, invoices, loadPayments, fmt, fmtDate, notify }) {
+function PaymentsTab({ payments, invoices, loadPayments, fmt, fmtDate, notify, year }) {
   const [showForm, setShowForm] = useState(false)
   const [scanning, setScanning] = useState(false)
   const [form, setForm] = useState({ type: 'payment', date: new Date().toISOString().split('T')[0], amount: '', counterparty: '', afm: '', payment_method: 'Μετρητά', bank: '', reference: '', notes: '' })
@@ -1305,14 +1317,15 @@ function PaymentsTab({ payments, invoices, loadPayments, fmt, fmtDate, notify })
   }
 
   const filtered = filterType === 'all' ? payments : payments.filter(p => p.type === filterType)
-  const totalReceipts = payments.filter(p => p.type === 'receipt').reduce((s, p) => s + (p.amount || 0), 0)
+  const yearPayments = payments.filter(p => new Date(p.date).getFullYear() === year)
+  const totalReceipts = yearPayments.filter(p => p.type === 'receipt').reduce((s, p) => s + (p.amount || 0), 0)
   const totalPayments = payments.filter(p => p.type === 'payment').reduce((s, p) => s + (p.amount || 0), 0)
 
   return (
     <div>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
-        <h2 style={{ fontSize: 19, fontWeight: 700 }}>Πληρωμές & Εισπράξεις</h2>
+        <h2 style={{ fontSize: 19, fontWeight: 700 }}>Πληρωμές & Εισπράξεις {year}</h2>
         <div style={{ display: 'flex', gap: 8 }}>
           <div style={{ background: '#0a2215', border: '1px solid #4ade8033', borderRadius: 7, padding: '4px 12px', textAlign: 'center' }}>
             <div style={{ fontSize: 9, color: '#4ade80', fontWeight: 700 }}>ΕΙΣΠΡΑΞΕΙΣ</div>
