@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 
 const fmt = (n) => new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' }).format(n || 0)
 const fmtDate = (d) => { if (!d) return '—'; try { return new Date(d).toLocaleDateString('el-GR') } catch { return d } }
-const TABS = ['Σάρωση', 'Έσοδα', 'Έξοδα', 'Πληρωμές', 'Γεν. Έξοδα', 'Καρτέλες', 'Υπόλοιπα']
+const TABS = ['Σάρωση', 'Έσοδα', 'Έξοδα', 'Πληρωμές', 'Γεν. Έξοδα', 'Καρτέλες', 'Υπόλοιπα', 'Αναφορές']
 
 const C = {
   app: { minHeight: '100vh', background: '#0a0c13', color: '#e8eaf0', fontFamily: 'system-ui,-apple-system,sans-serif' },
@@ -746,6 +746,8 @@ export default function App() {
         {/* ══════════════════════════════════════
             TAB 4: ΥΠΟΛΟΙΠΑ
         ══════════════════════════════════════ */}
+        {tab === 7 && <ReportsTab income={income} expenses={expenses} yearPayments={yearPayments} generalExpenses={generalExpenses.filter(e => { const d=new Date(e.date); return d.getFullYear()===year&&(month===0||d.getMonth()+1===month) })} fmt={fmt} fmtDate={fmtDate} year={year} month={month} monthsFull={monthsFull} />}
+
         {tab === 6 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 22 }}>
             {[{ type: 'income', label: 'Πελάτες — Εισπρακτέα', color: '#4ade80', total: totalIncome },
@@ -1890,6 +1892,208 @@ function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year
               </div>
             </div>
           )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ΑΝΑΦΟΡΕΣ
+═══════════════════════════════════════════════════════════ */
+function ReportsTab({ income, expenses, yearPayments, generalExpenses, fmt, fmtDate, year, month, monthsFull }) {
+  const [activeReport, setActiveReport] = useState('customers')
+  const period = month === 0 ? `${year}` : `${monthsFull[month-1]} ${year}`
+
+  // Τζίρος ανά πελάτη
+  const byCustomer = {}
+  income.forEach(inv => {
+    const key = inv.afm || inv.counterparty || 'Άγνωστος'
+    if (!byCustomer[key]) byCustomer[key] = { name: inv.counterparty || 'Άγνωστος', afm: inv.afm, invoices: 0, subtotal: 0, vat: 0, total: 0 }
+    byCustomer[key].invoices++
+    byCustomer[key].subtotal += inv.subtotal || 0
+    byCustomer[key].vat += inv.vat || 0
+    byCustomer[key].total += inv.total || 0
+  })
+  const customerList = Object.values(byCustomer).sort((a, b) => b.total - a.total)
+  const totalIncome = customerList.reduce((s, c) => s + c.total, 0)
+
+  // Τζίρος ανά προμηθευτή
+  const bySupplier = {}
+  expenses.forEach(inv => {
+    const name = inv.issuer_name || inv.counterparty || 'Άγνωστος'
+    const key = inv.issuer_afm || name
+    if (!bySupplier[key]) bySupplier[key] = { name, afm: inv.issuer_afm || inv.afm, invoices: 0, subtotal: 0, vat: 0, total: 0 }
+    bySupplier[key].invoices++
+    bySupplier[key].subtotal += inv.subtotal || 0
+    bySupplier[key].vat += inv.vat || 0
+    bySupplier[key].total += inv.total || 0
+  })
+  const supplierList = Object.values(bySupplier).sort((a, b) => b.total - a.total)
+  const totalExpense = supplierList.reduce((s, c) => s + c.total, 0)
+
+  // Γενικά έξοδα ανά κατηγορία
+  const byCat = {}
+  generalExpenses.forEach(e => {
+    if (!byCat[e.category]) byCat[e.category] = { count: 0, total: 0, vat: 0 }
+    byCat[e.category].count++
+    byCat[e.category].total += e.amount || 0
+    byCat[e.category].vat += e.vat || 0
+  })
+  const catList = Object.entries(byCat).sort((a, b) => b[1].total - a[1].total)
+  const totalGeneral = catList.reduce((s, [, v]) => s + v.total, 0)
+
+  const printReport = () => {
+    const win = window.open('', '_blank')
+    const isCustomer = activeReport === 'customers'
+    const isSupplier = activeReport === 'suppliers'
+    const list = isCustomer ? customerList : isSupplier ? supplierList : catList
+    const total = isCustomer ? totalIncome : isSupplier ? totalExpense : totalGeneral
+    const title = isCustomer ? 'ΤΖΙΡΟΣ ΑΝΑ ΠΕΛΑΤΗ' : isSupplier ? 'ΑΓΟΡΕΣ ΑΝΑ ΠΡΟΜΗΘΕΥΤΗ' : 'ΓΕΝΙΚΑ ΕΞΟΔΑ ΑΝΑ ΚΑΤΗΓΟΡΙΑ'
+    const color = isCustomer ? '#1a6e3a' : '#8b1a1a'
+
+    win.document.write(`<!DOCTYPE html><html><head><title>${title}</title><meta charset="utf-8">
+    <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;padding:25px;font-size:12px}
+    .hdr{text-align:center;margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid #000}
+    .title{font-size:18px;font-weight:bold;color:${color}}
+    .sub{font-size:13px;color:#444;margin-top:4px}
+    table{width:100%;border-collapse:collapse;margin-top:16px}
+    th{background:#333;color:#fff;padding:8px 10px;text-align:left;font-size:11px}
+    th.r{text-align:right}
+    td{padding:8px 10px;border-bottom:1px solid #eee;font-size:12px}
+    td.r{text-align:right}
+    tr:nth-child(even) td{background:#f9f9f9}
+    .tot{background:#f0f0f0!important;font-weight:bold}
+    .bar{background:${color};height:8px;border-radius:4px;display:inline-block}
+    @media print{@page{margin:12mm}}</style></head><body>
+    <div class="hdr">
+      <div class="title">${title}</div>
+      <div class="sub">Περίοδος: ${period} &nbsp;|&nbsp; Εκτύπωση: ${new Date().toLocaleDateString('el-GR')}</div>
+    </div>
+    <table>
+      <thead><tr>
+        <th>#</th>
+        ${isCustomer || isSupplier ? '<th>ΕΠΩΝΥΜΙΑ</th><th>ΑΦΜ</th><th class="r">ΠΑΡΑΣΤ.</th><th class="r">ΚΑΘΑΡΗ ΑΞΙΑ</th><th class="r">ΦΠΑ</th>' : '<th>ΚΑΤΗΓΟΡΙΑ</th><th class="r">ΕΓΓΡΑΦΕΣ</th>'}
+        <th class="r">ΣΥΝΟΛΟ</th>
+        <th class="r">% ΣΥΜΜΕΤΟΧΗ</th>
+      </tr></thead>
+      <tbody>
+        ${(isCustomer ? customerList : isSupplier ? supplierList : catList).map((item, i) => {
+          const isArr = Array.isArray(item)
+          const name = isArr ? item[0] : item.name
+          const data = isArr ? item[1] : item
+          const pct = total > 0 ? ((data.total / total) * 100).toFixed(1) : '0.0'
+          return `<tr>
+            <td>${i + 1}</td>
+            ${!isArr ? `<td><strong>${name}</strong></td><td style="font-family:monospace;color:#666">${data.afm || '—'}</td><td class="r">${data.invoices}</td><td class="r">${data.subtotal.toFixed(2)}€</td><td class="r">${data.vat.toFixed(2)}€</td>` : `<td><strong>${name}</strong></td><td class="r">${data.count}</td>`}
+            <td class="r"><strong>${data.total.toFixed(2)}€</strong></td>
+            <td class="r">${pct}% <span class="bar" style="width:${Math.max(4, parseFloat(pct))}px"></span></td>
+          </tr>`
+        }).join('')}
+        <tr class="tot">
+          <td colspan="${isCustomer || isSupplier ? '5' : '2'}"></td>
+          <td class="r">ΣΥΝΟΛΟ</td>
+          <td class="r">${total.toFixed(2)}€</td>
+          <td class="r">100%</td>
+        </tr>
+      </tbody>
+    </table>
+    <script>window.onload=()=>window.print()</script></body></html>`)
+    win.document.close()
+  }
+
+  const reports = [
+    { id: 'customers', label: 'Τζίρος ανά Πελάτη', total: totalIncome, color: '#4ade80', count: customerList.length },
+    { id: 'suppliers', label: 'Αγορές ανά Προμηθευτή', total: totalExpense, color: '#f87171', count: supplierList.length },
+    { id: 'general', label: 'Γεν. Έξοδα ανά Κατηγορία', total: totalGeneral, color: '#fbbf24', count: catList.length },
+  ]
+
+  const activeData = activeReport === 'customers' ? customerList : activeReport === 'suppliers' ? supplierList : null
+  const activeCatData = activeReport === 'general' ? catList : null
+  const activeTotal = activeReport === 'customers' ? totalIncome : activeReport === 'suppliers' ? totalExpense : totalGeneral
+  const activeColor = activeReport === 'customers' ? '#4ade80' : activeReport === 'suppliers' ? '#f87171' : '#fbbf24'
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
+        <h2 style={{ fontSize: 19, fontWeight: 700 }}>Αναφορές — {period}</h2>
+        <button onClick={printReport} style={{ background: '#1e2232', color: '#e8eaf0', border: '1px solid #2a3040', padding: '9px 16px', borderRadius: 8, fontSize: 12, cursor: 'pointer' }}>
+          Εκτύπωση / PDF
+        </button>
+      </div>
+
+      {/* Report selector */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
+        {reports.map(r => (
+          <div key={r.id} onClick={() => setActiveReport(r.id)}
+            style={{ background: activeReport === r.id ? '#13151f' : '#0f1117', border: `2px solid ${activeReport === r.id ? r.color + '66' : '#1e2232'}`, borderRadius: 10, padding: '16px 18px', cursor: 'pointer', transition: 'all .15s' }}>
+            <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 6 }}>{r.label}</div>
+            <div style={{ fontFamily: 'monospace', fontSize: 22, fontWeight: 700, color: r.color }}>{fmt(r.total)}</div>
+            <div style={{ fontSize: 11, color: '#5a6070', marginTop: 4 }}>{r.count} εγγραφές</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Table */}
+      <div style={{ background: '#13151f', border: '1px solid #1e2232', borderRadius: 12, overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'center', fontSize: 10, fontWeight: 700, color: '#5a6070', padding: '10px 12px', borderBottom: '1px solid #1e2232', width: 40 }}>#</th>
+                <th style={{ textAlign: 'left', fontSize: 10, fontWeight: 700, color: '#5a6070', padding: '10px 12px', borderBottom: '1px solid #1e2232' }}>
+                  {activeReport === 'general' ? 'ΚΑΤΗΓΟΡΙΑ' : 'ΕΠΩΝΥΜΙΑ'}
+                </th>
+                {activeReport !== 'general' && <>
+                  <th style={{ textAlign: 'left', fontSize: 10, fontWeight: 700, color: '#5a6070', padding: '10px 12px', borderBottom: '1px solid #1e2232' }}>ΑΦΜ</th>
+                  <th style={{ textAlign: 'right', fontSize: 10, fontWeight: 700, color: '#5a6070', padding: '10px 12px', borderBottom: '1px solid #1e2232' }}>ΠΑΡΑΣΤ.</th>
+                  <th style={{ textAlign: 'right', fontSize: 10, fontWeight: 700, color: '#5a6070', padding: '10px 12px', borderBottom: '1px solid #1e2232' }}>ΚΑΘΑΡΗ</th>
+                  <th style={{ textAlign: 'right', fontSize: 10, fontWeight: 700, color: '#5a6070', padding: '10px 12px', borderBottom: '1px solid #1e2232' }}>ΦΠΑ</th>
+                </>}
+                {activeReport === 'general' && <th style={{ textAlign: 'right', fontSize: 10, fontWeight: 700, color: '#5a6070', padding: '10px 12px', borderBottom: '1px solid #1e2232' }}>ΕΓΓΡΑΦΕΣ</th>}
+                <th style={{ textAlign: 'right', fontSize: 10, fontWeight: 700, color: '#5a6070', padding: '10px 12px', borderBottom: '1px solid #1e2232' }}>ΣΥΝΟΛΟ</th>
+                <th style={{ textAlign: 'right', fontSize: 10, fontWeight: 700, color: '#5a6070', padding: '10px 12px', borderBottom: '1px solid #1e2232' }}>% ΣΥΜΜΕΤΟΧΗ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(activeData || activeCatData || []).map((item, i) => {
+                const isArr = Array.isArray(item)
+                const name = isArr ? item[0] : item.name
+                const data = isArr ? item[1] : item
+                const pct = activeTotal > 0 ? ((data.total / activeTotal) * 100).toFixed(1) : '0.0'
+                return (
+                  <tr key={i} onMouseEnter={e => e.currentTarget.style.background='#1a1d2b'} onMouseLeave={e => e.currentTarget.style.background=''}>
+                    <td style={{ padding: '11px 12px', borderBottom: '1px solid #161824', fontSize: 12, color: '#5a6070', textAlign: 'center' }}>{i + 1}</td>
+                    <td style={{ padding: '11px 12px', borderBottom: '1px solid #161824', fontSize: 13, fontWeight: 600 }}>{name}</td>
+                    {activeReport !== 'general' && <>
+                      <td style={{ padding: '11px 12px', borderBottom: '1px solid #161824', fontSize: 11, color: '#5a6070', fontFamily: 'monospace' }}>{data.afm || '—'}</td>
+                      <td style={{ padding: '11px 12px', borderBottom: '1px solid #161824', fontSize: 12, textAlign: 'right', color: '#5a6070' }}>{data.invoices}</td>
+                      <td style={{ padding: '11px 12px', borderBottom: '1px solid #161824', fontSize: 12, textAlign: 'right', fontFamily: 'monospace' }}>{fmt(data.subtotal)}</td>
+                      <td style={{ padding: '11px 12px', borderBottom: '1px solid #161824', fontSize: 12, textAlign: 'right', fontFamily: 'monospace', color: '#5a6070' }}>{fmt(data.vat)}</td>
+                    </>}
+                    {activeReport === 'general' && <td style={{ padding: '11px 12px', borderBottom: '1px solid #161824', fontSize: 12, textAlign: 'right', color: '#5a6070' }}>{data.count}</td>}
+                    <td style={{ padding: '11px 12px', borderBottom: '1px solid #161824', fontSize: 14, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: activeColor }}>{fmt(data.total)}</td>
+                    <td style={{ padding: '11px 12px', borderBottom: '1px solid #161824', fontSize: 12, textAlign: 'right' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8 }}>
+                        <div style={{ background: '#1e2232', borderRadius: 4, overflow: 'hidden', width: 60, height: 6 }}>
+                          <div style={{ background: activeColor, height: '100%', width: `${Math.min(100, parseFloat(pct))}%`, borderRadius: 4 }} />
+                        </div>
+                        <span style={{ color: '#9ca3af', fontSize: 11, minWidth: 36 }}>{pct}%</span>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+              {/* Σύνολο */}
+              <tr style={{ background: '#0f1117' }}>
+                <td colSpan={activeReport !== 'general' ? 5 : 2} style={{ padding: '12px', fontSize: 12, color: '#5a6070', fontWeight: 700 }}>ΣΥΝΟΛΟ</td>
+                {activeReport !== 'general' && <td style={{ padding: '12px', fontSize: 12, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700 }}>{fmt((activeData||[]).reduce((s,c)=>s+(c.subtotal||0),0))}</td>}
+                {activeReport !== 'general' && <td style={{ padding: '12px', fontSize: 12, textAlign: 'right', fontFamily: 'monospace', color: '#5a6070' }}>{fmt((activeData||[]).reduce((s,c)=>s+(c.vat||0),0))}</td>}
+                <td style={{ padding: '12px', fontSize: 16, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: activeColor }}>{fmt(activeTotal)}</td>
+                <td style={{ padding: '12px', fontSize: 12, textAlign: 'right', color: '#5a6070' }}>100%</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
