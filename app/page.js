@@ -813,6 +813,10 @@ function KartelesTab({ invoices, byCounterparty, fmt, fmtDate }) {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(230px, 290px) 1fr', gap: 20 }}>
       <div>
+        <div style={{ marginBottom: 10 }}>
+          <input placeholder="🔍 Αναζήτηση..." value={kartelaSearch} onChange={e => { setKartelaSearch(e.target.value); setSelCP(null) }}
+            style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '8px 12px', fontSize: 12, width: '100%', outline: 'none', fontFamily: 'inherit' }} />
+        </div>
         <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
           {[['income', '📈 Πελάτες', '#4ade80', '#0a2215'], ['expense', '📉 Προμηθευτές', '#f87171', '#2a0f0f']].map(([type, label, color, bg]) => (
             <button key={type} onClick={() => { setCpType(type); setSelCP(null) }}
@@ -867,31 +871,11 @@ function KartelesTab({ invoices, byCounterparty, fmt, fmtDate }) {
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 550 }}>
                   <thead>
                     <tr>{['ΗΜΕΡΟΜΗΝΙΑ', 'ΕΙΔΟΣ', 'ΑΡΙΘΜΟΣ', 'ΚΑΘΑΡΗ', 'ΦΠΑ', 'ΣΥΝΟΛΟ', 'ΠΛΗΡΩΜΗ', ''].map(h => (
-              <div style={{ padding: "10px 12px", borderBottom: "1px solid #1e2232", display: "flex", gap: 10, alignItems: "center" }}>
-                <input placeholder="🔍 Αναζήτηση σε επωνυμία, υλικά, κωδικούς..." value={searchKartela} onChange={e => setSearchKartela(e.target.value)} style={{ background: "#0a0c13", border: "1px solid #2a3040", color: "#e8eaf0", borderRadius: 7, padding: "8px 12px", fontSize: 12, width: "100%", outline: "none", fontFamily: "inherit" }} />
-              </div>
+
                     ))}</tr>
                   </thead>
                   <tbody>
-                    {selected.invoices
-                      .filter(inv => {
-                        if (!searchKartela) return true
-                        const q = searchKartela.toLowerCase()
-                        const inItems = (inv.items || []).some(it =>
-                          (it.description || '').toLowerCase().includes(q) ||
-                          (it.code || '').toLowerCase().includes(q) ||
-                          (it.barcode || '').toLowerCase().includes(q)
-                        )
-                        return (inv.invoice_type || '').toLowerCase().includes(q) ||
-                          (inv.number || '').toLowerCase().includes(q) ||
-                          (inv.notes || '').toLowerCase().includes(q) ||
-                          (inv.issuer_name || '').toLowerCase().includes(q) ||
-                          (inv.issuer_trade_name || '').toLowerCase().includes(q) ||
-                          (inv.counterparty || '').toLowerCase().includes(q) ||
-                          (inv.trade_name || '').toLowerCase().includes(q) ||
-                          inItems
-                      })
-                      .map(inv => (
+                    {selected.invoices.map(inv => (
                       <React.Fragment key={inv.id}>
                         <tr
                           onClick={() => setExpandedInvId(expandedInvId === inv.id ? null : inv.id)}
