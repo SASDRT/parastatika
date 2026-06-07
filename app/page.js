@@ -152,6 +152,8 @@ export default function App() {
   const expenses = invoices.filter(i => i.type === 'expense')
   const totalIncome = income.reduce((s, i) => s + (i.total || 0), 0)
   const totalExpense = expenses.reduce((s, i) => s + (i.total || 0), 0)
+  const totalReceipts = payments.filter(p => p.type === 'receipt').reduce((s, p) => s + (p.amount || 0), 0)
+  const totalPaid = payments.filter(p => p.type === 'payment').reduce((s, p) => s + (p.amount || 0), 0)
   const balance = totalIncome - totalExpense
 
   const filtered = (list) => {
@@ -194,9 +196,21 @@ export default function App() {
     const pType = type === 'expense' ? 'payment' : 'receipt'
     pmts.filter(p => p.type === pType && p.counterparty).forEach(p => {
       const key = p.afm || p.counterparty
-      if (!map[key]) map[key] = { name: p.counterparty, trade_name: null, afm: p.afm, doy: null, invoices: [], total: 0 }
+      if (!map[key]) map[key] = { name: p.counterparty, trade_name: null, afm: p.afm, doy: null, invoices: [], total: 0, paidTotal: 0 }
     })
-    return Object.values(map).sort((a, b) => b.total - a.total)
+    // Υπολογισμός πραγματικού υπολοίπου (τιμολόγια - πληρωμές)
+    Object.values(map).forEach(cp => {
+      const paid = pmts.filter(p => {
+        const pT = type === 'expense' ? 'payment' : 'receipt'
+        return p.type === pT && (
+          (cp.afm && p.afm === cp.afm) ||
+          (p.counterparty || '').toLowerCase() === cp.name.toLowerCase()
+        )
+      }).reduce((s, p) => s + (p.amount || 0), 0)
+      cp.paidTotal = paid
+      cp.balance = cp.total - paid
+    })
+    return Object.values(map).sort((a, b) => Math.abs(b.balance || b.total) - Math.abs(a.balance || a.total))
   }
 
   const Field = ({ label, value, col = 1, mono = false }) => (
@@ -861,15 +875,38 @@ function KartelesTab({ invoices, payments, byCounterparty, fmt, fmtDate }) {
     <th>ΗΜΕΡΟΜΗΝΙΑ</th><th>ΕΙΔΟΣ</th><th>ΑΡΙΘΜΟΣ</th><th>ΤΡΟΠΟΣ ΠΛΗΡ.</th>
     <th class="r">ΧΡΕΩΣΗ</th><th class="r">ΠΙΣΤΩΣΗ</th><th class="r">ΥΠΟΛΟΙΠΟ</th>
     </tr></thead><tbody>
-    ${selected.invoices.map(inv => {
-      running += (inv.total || 0)
-      const debit = cpType === 'income' ? `<td class="r red">${(inv.total||0).toFixed(2)}€</td><td class="r">—</td>` : `<td class="r">—</td><td class="r grn">${(inv.total||0).toFixed(2)}€</td>`
-      return `<tr><td>${fmtDate(inv.date)}</td><td>${inv.invoice_type||'—'}</td><td>${(inv.series||'')}${inv.number||'—'}</td><td>${inv.payment_method||'—'}</td>${debit}<td class="r bold">${running.toFixed(2)}€</td></tr>`
-    }).join('')}
+    ${(() => {
+      const cpAfm = selected.afm
+      const cpName = selected.name
+      const pType = cpType === 'expense' ? 'payment' : 'receipt'
+      const relPmts = (payments||[]).filter(p => {
+        const matchAfm = cpAfm && p.afm === cpAfm
+        const matchName = (p.counterparty||'').toLowerCase() === cpName.toLowerCase()
+        return (matchAfm || matchName) && p.type === pType
+      })
+      const allMov = [
+        ...selected.invoices.map(inv => ({...inv, _kind:'invoice', _date: inv.date})),
+        ...relPmts.map(p => ({...p, _kind:'payment', _date: p.date}))
+      ].sort((a,b) => new Date(a._date) - new Date(b._date))
+      return allMov.map(mov => {
+        const isInv = mov._kind === 'invoice'
+        const debit = isInv ? (mov.total||0) : 0
+        const credit = !isInv ? (mov.amount||0) : 0
+        running += debit - credit
+        const dr = cpType === 'income'
+          ? `<td class="r red">${debit>0?debit.toFixed(2)+'€':'—'}</td><td class="r grn">${credit>0?credit.toFixed(2)+'€':'—'}</td>`
+          : `<td class="r red">${debit>0?debit.toFixed(2)+'€':'—'}</td><td class="r grn">${credit>0?credit.toFixed(2)+'€':'—'}</td>`
+        const kind = isInv ? (mov.invoice_type||'Τιμολόγιο') : (mov.type==='receipt'?'💚 Είσπραξη':'🔴 Πληρωμή')
+        const ref = isInv ? ((mov.series||'')+(mov.number||'—')) : (mov.reference||'—')
+        const method = mov.payment_method || '—'
+        return `<tr><td>${fmtDate(mov._date)}</td><td>${kind}</td><td>${ref}</td><td>${method}</td>${dr}<td class="r bold">${Math.abs(running).toFixed(2)}€${running>0?' ✗':running<0?' ✓':' ='}</td></tr>`
+      }).join('')
+    })()}
     </tbody></table>
     <div class="tot"><div class="tbox">
-    <div class="tr"><span>Σύνολο:</span><span class="${cpType === 'income' ? 'red' : 'grn'}">${selected.total.toFixed(2)}€</span></div>
-    <div class="tr grand"><span>ΥΠΟΛΟΙΠΟ:</span><span>${selected.total.toFixed(2)}€</span></div>
+    <div class="tr"><span>Χρεώσεις:</span><span class="red">${selected.invoices.reduce((s,i)=>s+(i.total||0),0).toFixed(2)}€</span></div>
+    <div class="tr"><span>Πιστώσεις:</span><span class="grn">${(() => { const pType=cpType==='expense'?'payment':'receipt'; return (payments||[]).filter(p=>(p.afm===selected.afm||(p.counterparty||'').toLowerCase()===selected.name.toLowerCase())&&p.type===pType).reduce((s,p)=>s+(p.amount||0),0).toFixed(2) })()}€</span></div>
+    <div class="tr grand"><span>ΥΠΟΛΟΙΠΟ:</span><span>${(selected.invoices.reduce((s,i)=>s+(i.total||0),0) - (() => { const pType=cpType==='expense'?'payment':'receipt'; return (payments||[]).filter(p=>(p.afm===selected.afm||(p.counterparty||'').toLowerCase()===selected.name.toLowerCase())&&p.type===pType).reduce((s,p)=>s+(p.amount||0),0) })()).toFixed(2)}€</span></div>
     </div></div>
     <script>window.onload=()=>window.print()</script></body></html>`)
     win.document.close()
@@ -901,7 +938,10 @@ function KartelesTab({ invoices, payments, byCounterparty, fmt, fmtDate }) {
               {cp.trade_name && <div style={{ fontSize: 10, color: '#4f8ef7' }}>"{cp.trade_name}"</div>}
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
                 <span style={{ fontSize: 10, color: '#5a6070' }}>{cp.invoices.length} παραστ.{cp.afm ? ` · ${cp.afm}` : ''}</span>
-                <span style={{ fontFamily: 'monospace', fontSize: 12, color, fontWeight: 700 }}>{fmt(cp.total)}</span>
+                <div style={{ textAlign: 'right' }}>
+                  {cp.paidTotal > 0 && <div style={{ fontFamily: 'monospace', fontSize: 10, color: '#4ade80' }}>-{fmt(cp.paidTotal)}</div>}
+                  <div style={{ fontFamily: 'monospace', fontSize: 12, color: cp.balance === 0 ? '#5a6070' : cp.balance > 0 ? color : '#4ade80', fontWeight: 700 }}>{fmt(Math.abs(cp.balance !== undefined ? cp.balance : cp.total))}{cp.balance < 0 ? ' ✓' : ''}</div>
+                </div>
               </div>
             </div>
           ))}
