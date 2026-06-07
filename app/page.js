@@ -134,7 +134,7 @@ export default function App() {
     const { error } = await supabase.from('invoices').insert([row])
     if (error) notify('⚠️ ' + error.message, 'error')
     else {
-      notify('✓ Παραστατικό αποθηκεύτηκε επιτυχώς!')
+      notify('Παραστατικό αποθηκεύτηκε επιτυχώς!')
       setEditForm(null); setPreviewImg(null)
       await loadInvoices()
       setTab(row.type === 'income' ? 1 : 2)
@@ -306,7 +306,7 @@ export default function App() {
                   <div style={{ fontSize: 12, color: '#9ca3af', fontWeight: 700, letterSpacing: 1 }}>ΕΠΑΛΗΘΕΥΣΗ & ΑΠΟΘΗΚΕΥΣΗ</div>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button style={{ ...C.btnPrimary, opacity: saving ? .7 : 1, padding: '8px 16px', fontSize: 13 }} onClick={saveInvoice} disabled={saving}>
-                      {saving ? '⏳...' : '✓ Αποθήκευση'}
+                      {saving ? '...' : 'Αποθήκευση'}
                     </button>
                     <button style={C.btnGhost} onClick={() => { setEditForm(null); setPreviewImg(null) }}>✕</button>
                   </div>
@@ -899,7 +899,7 @@ function KartelesTab({ invoices, payments, byCounterparty, fmt, fmtDate }) {
         const kind = isInv ? (mov.invoice_type||'Τιμολόγιο') : (mov.type==='receipt'?'Είσπραξη':'Πληρωμή')
         const ref = isInv ? ((mov.series||'')+(mov.number||'—')) : (mov.reference||'—')
         const method = mov.payment_method || '—'
-        return `<tr><td>${fmtDate(mov._date)}</td><td>${kind}</td><td>${ref}</td><td>${method}</td>${dr}<td class="r bold">${Math.abs(running).toFixed(2)}€${running>0?' ✗':running<0?' ✓':' ='}</td></tr>`
+        return `<tr><td>${fmtDate(mov._date)}</td><td>${kind}</td><td>${ref}</td><td>${method}</td>${dr}<td class="r bold">${Math.abs(running).toFixed(2)}€${running>0?'':running<0?'':''}</td></tr>`
       }).join('')
     })()}
     </tbody></table>
@@ -940,7 +940,7 @@ function KartelesTab({ invoices, payments, byCounterparty, fmt, fmtDate }) {
                 <span style={{ fontSize: 10, color: '#5a6070' }}>{cp.invoices.length} παραστ.{cp.afm ? ` · ${cp.afm}` : ''}</span>
                 <div style={{ textAlign: 'right' }}>
                   {cp.paidTotal > 0 && <div style={{ fontFamily: 'monospace', fontSize: 10, color: '#4ade80' }}>-{fmt(cp.paidTotal)}</div>}
-                  <div style={{ fontFamily: 'monospace', fontSize: 12, color: cp.balance === 0 ? '#5a6070' : cp.balance > 0 ? color : '#4ade80', fontWeight: 700 }}>{fmt(Math.abs(cp.balance !== undefined ? cp.balance : cp.total))}{cp.balance < 0 ? ' ✓' : ''}</div>
+                  <div style={{ fontFamily: 'monospace', fontSize: 12, color: cp.balance === 0 ? '#5a6070' : cp.balance > 0 ? color : '#4ade80', fontWeight: 700 }}>{fmt(Math.abs(cp.balance !== undefined ? cp.balance : cp.total))}{cp.balance < 0 ? '' : ''}</div>
                 </div>
               </div>
             </div>
@@ -1026,7 +1026,7 @@ function KartelesTab({ invoices, payments, byCounterparty, fmt, fmtDate }) {
                         <td style={{ padding:'10px 12px', borderBottom:'1px solid #161824', fontSize:11, color:'#5a6070' }}>{isInvoice ? (mov.payment_method||'—') : (mov.payment_method||'—')}</td>
                         <td style={{ padding:'10px 12px', borderBottom:'1px solid #161824', fontSize:13, fontFamily:'monospace', textAlign:'right', fontWeight: debit>0?700:400, color: debit>0?'#f87171':'#3a4055' }}>{debit>0?fmt(debit):'—'}</td>
                         <td style={{ padding:'10px 12px', borderBottom:'1px solid #161824', fontSize:13, fontFamily:'monospace', textAlign:'right', fontWeight: credit>0?700:400, color: credit>0?'#4ade80':'#3a4055' }}>{credit>0?fmt(credit):'—'}</td>
-                        <td style={{ padding:'10px 12px', borderBottom:'1px solid #161824', fontSize:13, fontFamily:'monospace', textAlign:'right', fontWeight:700, color:balColor }}>{fmt(Math.abs(running))}{running>0?' (χρεώστης)':running<0?' (πιστωτής)':' ✓'}</td>
+                        <td style={{ padding:'10px 12px', borderBottom:'1px solid #161824', fontSize:13, fontFamily:'monospace', textAlign:'right', fontWeight:700, color:balColor }}>{fmt(Math.abs(running))}{running>0?' (χρεώστης)':running<0?' (πιστωτής)':''}</td>
                         <td style={{ padding:'10px 12px', borderBottom:'1px solid #161824' }}>
                           {isInvoice && (mov.items||[]).length > 0 && <button onClick={() => setExpandedInvId(expandedInvId===mov.id?null:mov.id)} style={{ background:'transparent', color:'#5a6070', border:'none', cursor:'pointer', fontSize:11 }}>{expandedInvId===mov.id?'▲':'▼'}</button>}
                         </td>
@@ -1109,7 +1109,7 @@ function TraderSearch({ value, onChange, onSelect, type = 'all', placeholder = '
           onBlur={() => setTimeout(() => setShow(false), 200)}
           placeholder={placeholder}
           style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '9px 32px 9px 12px', fontSize: 13, width: '100%', outline: 'none' }} />
-        {loading && <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: '#5a6070' }}>⏳</span>}
+        {loading && <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: '#5a6070' }}>...</span>}
         {!loading && <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: '#5a6070' }}>🔍</span>}
       </div>
       {show && results.length > 0 && (
@@ -1184,7 +1184,7 @@ function PaymentsTab({ payments, invoices, loadPayments, fmt, fmtDate, notify })
     }])
     if (error) notify('⚠️ ' + error.message, 'error')
     else {
-      notify('✓ Αποθηκεύτηκε!')
+      notify('Αποθηκεύτηκε!')
       setShowForm(false)
       setForm({ type: 'payment', date: new Date().toISOString().split('T')[0], amount: '', counterparty: '', afm: '', payment_method: 'Μετρητά', bank: '', reference: '', notes: '' })
       await loadPayments()
@@ -1252,7 +1252,7 @@ function PaymentsTab({ payments, invoices, loadPayments, fmt, fmtDate, notify })
               await supabase.from('traders').delete().neq('id', 0)
               const { error } = await supabase.from('traders').insert(rows)
               if (error) notify('⚠️ ' + error.message, 'error')
-              else notify(`✓ Εισήχθησαν ${rows.length} επαφές!`)
+              else notify(`Εισήχθησαν ${rows.length} επαφές!`)
             } catch(err) { notify('⚠️ ' + err.message, 'error') }
           }} />
         </label>
@@ -1319,7 +1319,7 @@ function PaymentsTab({ payments, invoices, loadPayments, fmt, fmtDate, notify })
           <div style={{ display: 'flex', gap: 10, marginTop: 14, alignItems: 'center' }}>
             <button onClick={savePayment} disabled={saving}
               style={{ background: 'linear-gradient(135deg,#4f8ef7,#7c5cf7)', color: '#fff', border: 'none', padding: '10px 24px', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer', opacity: saving ? .7 : 1 }}>
-              {saving ? '⏳...' : '✓ Αποθήκευση'}
+              {saving ? '...' : 'Αποθήκευση'}
             </button>
             <label style={{ background: '#1e2232', color: '#e8eaf0', border: 'none', padding: '10px 16px', borderRadius: 8, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
               {scanning ? 'Ανάγνωση...' : 'Σάρωση απόδειξης'}
