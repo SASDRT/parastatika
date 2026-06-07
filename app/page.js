@@ -1184,7 +1184,7 @@ function PaymentsTab({ payments, invoices, loadPayments, fmt, fmtDate, notify })
             const text = await file.text()
             const json = JSON.parse(text)
             const traders = json.traders || []
-            const res = await fetch('/api/import-traders', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({traders}) })
+            const res = await fetch('/api/ocr/import-traders', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({traders}) })
             const result = await res.json()
             if (result.success) notify(`✓ Εισήχθησαν ${result.count} επαφές από Emblem!`)
             else notify('⚠️ Σφάλμα import: ' + result.error, 'error')
