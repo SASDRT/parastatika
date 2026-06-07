@@ -154,14 +154,17 @@ export default function App() {
     return list.filter(i => {
       const itemMatch = (i.items || []).some(it =>
         (it.description || '').toLowerCase().includes(q) ||
-        (it.code || '').toLowerCase().includes(q)
+        (it.code || '').toLowerCase().includes(q) ||
+        (it.barcode || '').toLowerCase().includes(q)
       )
       return (i.counterparty || '').toLowerCase().includes(q) ||
-        (i.issuer_name || '').toLowerCase().includes(q) ||
         (i.trade_name || '').toLowerCase().includes(q) ||
+        (i.issuer_name || '').toLowerCase().includes(q) ||
+        (i.issuer_trade_name || '').toLowerCase().includes(q) ||
         (i.number || '').toLowerCase().includes(q) ||
         (i.series || '').toLowerCase().includes(q) ||
         (i.afm || '').includes(q) ||
+        (i.issuer_afm || '').includes(q) ||
         (i.invoice_type || '').toLowerCase().includes(q) ||
         (i.notes || '').toLowerCase().includes(q) ||
         itemMatch
