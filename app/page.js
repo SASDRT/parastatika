@@ -1027,6 +1027,63 @@ function KartelesTab({ invoices, payments, byCounterparty, fmt, fmtDate }) {
   )
 }
 
+
+/* ═══════════════════════════════════════
+   AUTOCOMPLETE COMPONENT
+═══════════════════════════════════════ */
+function TraderSearch({ value, onChange, onSelect, type = 'all', placeholder = 'Αναζήτηση...' }) {
+  const [results, setResults] = useState([])
+  const [show, setShow] = useState(false)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (value.length < 2) { setResults([]); setShow(false); return }
+    const timer = setTimeout(async () => {
+      setLoading(true)
+      try {
+        const res = await fetch(`/api/search-traders?q=${encodeURIComponent(value)}&type=${type}`)
+        const json = await res.json()
+        if (json.success) { setResults(json.data); setShow(true) }
+      } catch(e) {}
+      setLoading(false)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [value])
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <div style={{ position: 'relative' }}>
+        <input value={value} onChange={e => { onChange(e.target.value); setShow(true) }}
+          onFocus={() => value.length >= 2 && setShow(true)}
+          onBlur={() => setTimeout(() => setShow(false), 200)}
+          placeholder={placeholder}
+          style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '9px 32px 9px 12px', fontSize: 13, width: '100%', outline: 'none' }} />
+        {loading && <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: '#5a6070' }}>⏳</span>}
+        {!loading && <span style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 12, color: '#5a6070' }}>🔍</span>}
+      </div>
+      {show && results.length > 0 && (
+        <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: '#13151f', border: '1px solid #2a3040', borderRadius: 8, zIndex: 999, maxHeight: 240, overflowY: 'auto', boxShadow: '0 8px 24px rgba(0,0,0,.5)' }}>
+          {results.map((t, i) => (
+            <div key={i} onMouseDown={() => { onSelect(t); setShow(false) }}
+              style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid #1e2232' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#1e2232'}
+              onMouseLeave={e => e.currentTarget.style.background = ''}>
+              <div style={{ fontWeight: 600, fontSize: 13 }}>{t.name}</div>
+              {t.trade_name && <div style={{ fontSize: 11, color: '#4f8ef7' }}>"{t.trade_name}"</div>}
+              <div style={{ fontSize: 11, color: '#5a6070', marginTop: 2 }}>
+                ΑΦΜ: {t.afm || '—'}{t.city ? ` · ${t.city}` : ''}
+                {t.is_customer && !t.is_supplier && ' · 👤 Πελάτης'}
+                {t.is_supplier && !t.is_customer && ' · 🏪 Προμηθευτής'}
+                {t.is_customer && t.is_supplier && ' · 👤🏪 Πελάτης & Προμηθευτής'}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 /* ═══════════════════════════════════════════════════════════
    ΠΛΗΡΩΜΕΣ & ΕΙΣΠΡΑΞΕΙΣ
 ═══════════════════════════════════════════════════════════ */
@@ -1115,6 +1172,20 @@ function PaymentsTab({ payments, invoices, loadPayments, fmt, fmtDate, notify })
             <button key={v} onClick={() => setFilterType(v)} style={{ background: filterType===v ? '#1e2232' : 'transparent', color: filterType===v ? '#e8eaf0' : '#5a6070', border: '1px solid #2a3040', padding: '6px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>{l}</button>
           ))}
         </div>
+        <label style={{ background: '#1e2232', color: '#e8eaf0', border: '1px solid #2a3040', padding: '9px 14px', borderRadius: 8, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
+          title="Import πελατών/προμηθευτών από Emblem JSON">
+          📥 Import Emblem
+          <input type="file" accept=".json" style={{ display: 'none' }} onChange={async e => {
+            const file = e.target.files[0]; if (!file) return
+            const text = await file.text()
+            const json = JSON.parse(text)
+            const traders = json.traders || []
+            const res = await fetch('/api/import-traders', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({traders}) })
+            const result = await res.json()
+            if (result.success) notify(`✓ Εισήχθησαν ${result.count} επαφές από Emblem!`)
+            else notify('⚠️ Σφάλμα import: ' + result.error, 'error')
+          }} />
+        </label>
         <button onClick={() => setShowForm(!showForm)} style={{ background: 'linear-gradient(135deg,#4f8ef7,#7c5cf7)', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>+ Νέα</button>
       </div>
 
@@ -1143,8 +1214,10 @@ function PaymentsTab({ payments, invoices, loadPayments, fmt, fmtDate, notify })
             </div>
             <div>
               <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>{form.type === 'receipt' ? 'ΑΠΟ ΠΕΛΑΤΗ' : 'ΣΕ ΠΡΟΜΗΘΕΥΤΗ'}</label>
-              <input value={form.counterparty} onChange={e => ef('counterparty', e.target.value)} placeholder="Επωνυμία"
-                style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '9px 12px', fontSize: 13, width: '100%', outline: 'none' }} />
+              <TraderSearch value={form.counterparty} onChange={v => ef('counterparty', v)}
+                onSelect={t => { ef('counterparty', t.name); ef('afm', t.afm || ''); }}
+                type={form.type === 'receipt' ? 'customer' : 'supplier'}
+                placeholder="Γράψε επωνυμία ή ΑΦΜ..." />
             </div>
             <div>
               <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΑΦΜ</label>
