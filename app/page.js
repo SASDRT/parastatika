@@ -42,6 +42,7 @@ export default function App() {
   const [searchQ, setSearchQ] = useState('')
   const [notification, setNotification] = useState('')
   const [saving, setSaving] = useState(false)
+  const [expandedId, setExpandedId] = useState(null)
 
   // Load invoices
   useEffect(() => {
@@ -291,7 +292,6 @@ export default function App() {
           const color = tab === 1 ? '#4ade80' : '#f87171'
           const total = list.reduce((s, i) => s + (i.total || 0), 0)
           const flist = filtered(list)
-          const [expandedId, setExpandedId] = useState(null)
           return (
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
