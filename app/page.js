@@ -252,6 +252,20 @@ export default function App() {
     await loadInvoices(); notify('Διαγράφηκε.')
   }
 
+  const copyInvoice = (inv) => {
+    const copy = { ...inv }
+    delete copy.id
+    delete copy.created_at
+    copy.date = new Date().toISOString().split('T')[0]
+    copy.number = ''
+    copy.series = ''
+    copy.mark = null
+    copy.uid = null
+    setEditForm(copy)
+    setTab(1)
+    notify('Αντίγραφο έτοιμο — επεξεργάσου και αποθήκευσε!')
+  }
+
   const income = invoices.filter(i => {
     if (i.type !== 'income') return false
     const d = new Date(i.date)
@@ -748,7 +762,7 @@ export default function App() {
             filtered={filtered} expandedId={expandedId} setExpandedId={setExpandedId}
             deleteInvoice={deleteInvoice} setTab={setTab} setEditForm={setEditForm}
             fmt={fmt} fmtDate={fmtDate} loading={loading}
-            tab={tab}
+            tab={tab} copyInvoice={copyInvoice}
           />
         )}
 
@@ -2348,7 +2362,7 @@ function DashboardTab({ income, expenses, yearPayments, generalExpenses, invoice
 /* ═══════════════════════════════════════
    INVOICE LIST COMPONENT (με sorting)
 ═══════════════════════════════════════ */
-function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expandedId, setExpandedId, deleteInvoice, setTab, setEditForm, fmt, fmtDate, loading, tab }) {
+function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expandedId, setExpandedId, deleteInvoice, setTab, setEditForm, fmt, fmtDate, loading, tab, copyInvoice }) {
   const total = list.reduce((s, i) => s + (i.total || 0), 0)
   const flist = filtered(list)
   const { sorted: sortedList, SortTh } = useSortable(flist, 'date', 'desc')
@@ -2383,7 +2397,7 @@ function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expand
       ) : (
         <div style={{ background: '#13151f', border: '1px solid #1e2232', borderRadius: 12, overflow: 'hidden' }}>
           {/* Sortable headers */}
-          <div style={{ display: 'grid', gridTemplateColumns: '95px 100px 140px 1fr 115px 95px 95px 115px 48px', gap: 6, padding: '0 16px', background: '#0f1117', borderBottom: '1px solid #1e2232' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '95px 100px 140px 1fr 115px 95px 95px 115px 70px', gap: 6, padding: '0 16px', background: '#0f1117', borderBottom: '1px solid #1e2232' }}>
             <SortTh label="ΗΜΕΡΟΜΗΝΙΑ" field="date" />
             <SortTh label="ΑΡΙΘΜΟΣ" field="number" />
             <SortTh label="ΕΙΔΟΣ" field="invoice_type" />
@@ -2398,7 +2412,7 @@ function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expand
             {sortedList.map(inv => (
               <div key={inv.id} style={{ borderBottom: '1px solid #161824' }}>
                 <div onClick={() => setExpandedId(expandedId === inv.id ? null : inv.id)}
-                  style={{ display: 'grid', gridTemplateColumns: '95px 100px 140px 1fr 115px 95px 95px 115px 48px', gap: 6, padding: '12px 16px', cursor: 'pointer', alignItems: 'center' }}
+                  style={{ display: 'grid', gridTemplateColumns: '95px 100px 140px 1fr 115px 95px 95px 115px 70px', gap: 6, padding: '12px 16px', cursor: 'pointer', alignItems: 'center' }}
                   onMouseEnter={e => e.currentTarget.style.background = '#1a1d2b'}
                   onMouseLeave={e => e.currentTarget.style.background = ''}>
                   <span style={{ color: '#9ca3af', fontSize: 11, fontFamily: 'monospace' }}>{fmtDate(inv.date)}</span>
@@ -2422,6 +2436,9 @@ function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expand
                   <span style={{ fontFamily: 'monospace', fontSize: 14, textAlign: 'right', fontWeight: 700, color }}>{fmt(inv.total)}</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
                     <span style={{ color: '#5a6070', fontSize: 11 }}>{expandedId === inv.id ? '▲' : '▼'}</span>
+                    <button style={{ background: 'transparent', color: '#4f8ef7', border: 'none', padding: '4px 6px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}
+                      title="Αντίγραφο"
+                      onClick={e => { e.stopPropagation(); copyInvoice(inv) }}>⎘</button>
                     <button style={{ background: 'transparent', color: '#f87171', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}
                       onClick={e => { e.stopPropagation(); deleteInvoice(inv.id) }}>✕</button>
                   </div>
