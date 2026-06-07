@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 
 const fmt = (n) => new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' }).format(n || 0)
 const fmtDate = (d) => { if (!d) return '—'; try { return new Date(d).toLocaleDateString('el-GR') } catch { return d } }
-const TABS = ['📸 Σάρωση', '📈 Έσοδα', '📉 Έξοδα', '📋 Καρτέλες', '💰 Υπόλοιπα']
+const TABS = ['📸 Σάρωση', '📈 Έσοδα', '📉 Έξοδα', '💳 Πληρωμές', '📋 Καρτέλες', '💰 Υπόλοιπα']
 
 const C = {
   app: { minHeight: '100vh', background: '#0a0c13', color: '#e8eaf0', fontFamily: 'system-ui,-apple-system,sans-serif' },
@@ -40,14 +40,20 @@ export default function App() {
   const [notification, setNotification] = useState('')
   const [saving, setSaving] = useState(false)
   const [expandedId, setExpandedId] = useState(null)
+  const [payments, setPayments] = useState([])
 
-  useEffect(() => { loadInvoices() }, [])
+  useEffect(() => { loadInvoices(); loadPayments() }, [])
 
   const loadInvoices = async () => {
     setLoading(true)
     const { data, error } = await supabase.from('invoices').select('*').order('date', { ascending: false })
     if (!error) setInvoices(data || [])
     setLoading(false)
+  }
+
+  const loadPayments = async () => {
+    const { data, error } = await supabase.from('payments').select('*').order('date', { ascending: false })
+    if (!error) setPayments(data || [])
   }
 
   const notify = (msg, type = 'success') => {
@@ -463,14 +469,19 @@ export default function App() {
         })()}
 
         {/* ══════════════════════════════════════
-            TAB 3: ΚΑΡΤΕΛΕΣ
+            TAB 3: ΠΛΗΡΩΜΕΣ
         ══════════════════════════════════════ */}
-        {tab === 3 && <KartelesTab invoices={invoices} byCounterparty={byCounterparty} fmt={fmt} fmtDate={fmtDate} />}
+        {tab === 3 && <PaymentsTab payments={payments} invoices={invoices} loadPayments={loadPayments} fmt={fmt} fmtDate={fmtDate} notify={notify} />}
+
+        {/* ══════════════════════════════════════
+            TAB 4: ΚΑΡΤΕΛΕΣ
+        ══════════════════════════════════════ */}
+        {tab === 4 && <KartelesTab invoices={invoices} payments={payments} byCounterparty={byCounterparty} fmt={fmt} fmtDate={fmtDate} />}
 
         {/* ══════════════════════════════════════
             TAB 4: ΥΠΟΛΟΙΠΑ
         ══════════════════════════════════════ */}
-        {tab === 4 && (
+        {tab === 5 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 22 }}>
             {[{ type: 'income', label: '📈 Πελάτες — Εισπρακτέα', color: '#4ade80', total: totalIncome },
               { type: 'expense', label: '📉 Προμηθευτές — Πληρωτέα', color: '#f87171', total: totalExpense }].map(({ type, label, color, total }) => (
@@ -791,7 +802,7 @@ function InvoiceDetail({ inv, color, fmt, fmtDate }) {
 /* ═══════════════════════════════════════
    ΚΑΡΤΕΛΕΣ
 ═══════════════════════════════════════ */
-function KartelesTab({ invoices, byCounterparty, fmt, fmtDate }) {
+function KartelesTab({ invoices, payments, byCounterparty, fmt, fmtDate }) {
   const [cpType, setCpType] = useState('income')
   const [selCP, setSelCP] = useState(null)
   const [searchKartela, setSearchKartela] = useState('')
@@ -920,33 +931,59 @@ function KartelesTab({ invoices, byCounterparty, fmt, fmtDate }) {
               </div>
             </div>
 
-            {/* Πίνακας παραστατικών */}
+            {/* Πίνακας παραστατικών + πληρωμών */}
+            {(() => {
+              // Συνδυάζω τιμολόγια + πληρωμές και ταξινομώ κατά ημερομηνία
+              const cpAfm = cpType === 'expense' ? selected.afm : selected.afm
+              const cpName = selected.name
+              const relatedPayments = (payments || []).filter(p => {
+                const matchAfm = cpAfm && p.afm === cpAfm
+                const matchName = (p.counterparty || '').toLowerCase() === cpName.toLowerCase()
+                const correctType = cpType === 'expense' ? p.type === 'payment' : p.type === 'receipt'
+                return (matchAfm || matchName) && correctType
+              })
+              const allMovements = [
+                ...selected.invoices.map(inv => ({ ...inv, _kind: 'invoice', _date: inv.date })),
+                ...relatedPayments.map(p => ({ ...p, _kind: 'payment', _date: p.date }))
+              ].sort((a, b) => new Date(a._date) - new Date(b._date))
+              
+              let running = 0
+              return (
             <div style={{ background: '#13151f', border: '1px solid #1e2232', borderRadius: 12, overflow: 'hidden' }}>
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 650 }}>
                   <thead>
                     <tr>
-                      {['ΗΜΕΡΟΜΗΝΙΑ', 'ΕΙΔΟΣ', 'ΑΡΙΘΜΟΣ', 'ΚΑΘΑΡΗ', 'ΦΠΑ', 'ΣΥΝΟΛΟ', 'ΠΛΗΡΩΜΗ', ''].map(h => (
-                        <th key={h} style={{ textAlign: h === 'ΚΑΘΑΡΗ' || h === 'ΦΠΑ' || h === 'ΣΥΝΟΛΟ' ? 'right' : 'left', fontSize: 10, fontWeight: 700, letterSpacing: 1, color: '#5a6070', padding: '9px 12px', borderBottom: '1px solid #1e2232' }}>{h}</th>
+                      {['ΗΜΕΡΟΜΗΝΙΑ', 'ΚΙΝΗΣΗ', 'ΑΡΙΘΜΟΣ/ΑΝΑΦΟΡΑ', 'ΤΡΟΠΟΣ', 'ΧΡΕΩΣΗ', 'ΠΙΣΤΩΣΗ', 'ΥΠΟΛΟΙΠΟ', ''].map(h => (
+                        <th key={h} style={{ textAlign: ['ΧΡΕΩΣΗ','ΠΙΣΤΩΣΗ','ΥΠΟΛΟΙΠΟ'].includes(h) ? 'right' : 'left', fontSize: 10, fontWeight: 700, letterSpacing: 1, color: '#5a6070', padding: '9px 12px', borderBottom: '1px solid #1e2232' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {selected.invoices.map(inv => (
-                      <React.Fragment key={inv.id}>
-                        <tr onClick={() => setExpandedInvId(expandedInvId === inv.id ? null : inv.id)}
-                          style={{ cursor: 'pointer' }}
-                          onMouseEnter={e => e.currentTarget.style.background = '#1a1d2b'}
-                          onMouseLeave={e => e.currentTarget.style.background = ''}>
-                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 12, color: '#9ca3af', fontFamily: 'monospace' }}>{fmtDate(inv.date)}</td>
-                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 11, color: '#4f8ef7', fontWeight: 600 }}>{inv.invoice_type || '—'}</td>
-                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 12, fontFamily: 'monospace', color: '#7c5cf7' }}>{inv.series || ''}{inv.number || '—'}</td>
-                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 12, fontFamily: 'monospace', textAlign: 'right' }}>{fmt(inv.subtotal)}</td>
-                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 12, fontFamily: 'monospace', textAlign: 'right', color: '#5a6070' }}>{fmt(inv.vat)}</td>
-                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 700, color }}>{fmt(inv.total)}</td>
-                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 11, color: '#5a6070' }}>{inv.payment_method || '—'}</td>
-                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 11, color: '#5a6070', textAlign: 'center' }}>{expandedInvId === inv.id ? '▲' : '▼'}</td>
-                        </tr>
+                    {allMovements.map((mov, idx) => {
+                      const isInvoice = mov._kind === 'invoice'
+                      const debit = isInvoice ? (mov.total || 0) : 0
+                      const credit = !isInvoice ? (mov.amount || 0) : 0
+                      running += debit - credit
+                      const balColor = running > 0 ? '#f87171' : running < 0 ? '#4ade80' : '#5a6070'
+                      return (
+                      <tr key={idx} onMouseEnter={e => e.currentTarget.style.background='#1a1d2b'} onMouseLeave={e => e.currentTarget.style.background=''}>
+                        <td style={{ padding:'10px 12px', borderBottom:'1px solid #161824', fontSize:12, color:'#9ca3af', fontFamily:'monospace' }}>{fmtDate(mov._date)}</td>
+                        <td style={{ padding:'10px 12px', borderBottom:'1px solid #161824', fontSize:12 }}>
+                          {isInvoice
+                            ? <span style={{ color:'#4f8ef7', fontWeight:600 }}>{mov.invoice_type || 'Τιμολόγιο'}</span>
+                            : <span style={{ background: mov.type==='receipt'?'#0a2215':'#2a0f0f', color: mov.type==='receipt'?'#4ade80':'#f87171', padding:'2px 8px', borderRadius:4, fontSize:11, fontWeight:600 }}>{mov.type==='receipt'?'💚 Είσπραξη':'🔴 Πληρωμή'}</span>
+                          }
+                        </td>
+                        <td style={{ padding:'10px 12px', borderBottom:'1px solid #161824', fontSize:12, fontFamily:'monospace', color:'#7c5cf7' }}>{isInvoice ? (mov.series||'')+(mov.number||'—') : (mov.reference||'—')}</td>
+                        <td style={{ padding:'10px 12px', borderBottom:'1px solid #161824', fontSize:11, color:'#5a6070' }}>{isInvoice ? (mov.payment_method||'—') : (mov.payment_method||'—')}</td>
+                        <td style={{ padding:'10px 12px', borderBottom:'1px solid #161824', fontSize:13, fontFamily:'monospace', textAlign:'right', fontWeight: debit>0?700:400, color: debit>0?'#f87171':'#3a4055' }}>{debit>0?fmt(debit):'—'}</td>
+                        <td style={{ padding:'10px 12px', borderBottom:'1px solid #161824', fontSize:13, fontFamily:'monospace', textAlign:'right', fontWeight: credit>0?700:400, color: credit>0?'#4ade80':'#3a4055' }}>{credit>0?fmt(credit):'—'}</td>
+                        <td style={{ padding:'10px 12px', borderBottom:'1px solid #161824', fontSize:13, fontFamily:'monospace', textAlign:'right', fontWeight:700, color:balColor }}>{fmt(Math.abs(running))}{running>0?' (χρεώστης)':running<0?' (πιστωτής)':' ✓'}</td>
+                        <td style={{ padding:'10px 12px', borderBottom:'1px solid #161824' }}>
+                          {isInvoice && (mov.items||[]).length > 0 && <button onClick={() => setExpandedInvId(expandedInvId===mov.id?null:mov.id)} style={{ background:'transparent', color:'#5a6070', border:'none', cursor:'pointer', fontSize:11 }}>{expandedInvId===mov.id?'▲':'▼'}</button>}
+                        </td>
+                      </tr>
                         {expandedInvId === inv.id && inv.items && inv.items.length > 0 && (
                           <tr>
                             <td colSpan={8} style={{ padding: 0, background: '#0a0c13' }}>
@@ -975,15 +1012,222 @@ function KartelesTab({ invoices, byCounterparty, fmt, fmtDate }) {
                             </td>
                           </tr>
                         )}
-                      </React.Fragment>
-                    ))}
+                    )
+                    })}
                   </tbody>
                 </table>
               </div>
             </div>
+              )
+            })()}
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ΠΛΗΡΩΜΕΣ & ΕΙΣΠΡΑΞΕΙΣ
+═══════════════════════════════════════════════════════════ */
+function PaymentsTab({ payments, invoices, loadPayments, fmt, fmtDate, notify }) {
+  const [showForm, setShowForm] = useState(false)
+  const [scanning, setScanning] = useState(false)
+  const [form, setForm] = useState({ type: 'payment', date: new Date().toISOString().split('T')[0], amount: '', counterparty: '', afm: '', payment_method: 'Μετρητά', bank: '', reference: '', notes: '' })
+  const [saving, setSaving] = useState(false)
+  const [filterType, setFilterType] = useState('all')
+
+  const ef = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  const handleFile = async (file) => {
+    if (!file) return
+    setScanning(true)
+    const reader = new FileReader()
+    reader.onload = async (e) => {
+      const dataUrl = e.target.result
+      try {
+        const res = await fetch('/api/ocr-payment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base64: dataUrl.split(',')[1], mediaType: file.type || 'image/jpeg' })
+        })
+        const json = await res.json()
+        if (json.success) setForm(f => ({ ...f, ...json.data }))
+        else notify('⚠️ Δεν μπόρεσα να διαβάσω την απόδειξη.', 'error')
+      } catch(e) { notify('⚠️ ' + e.message, 'error') }
+      setScanning(false)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const savePayment = async () => {
+    if (!form.amount || !form.date) { notify('⚠️ Συμπλήρωσε ημερομηνία και ποσό!', 'error'); return }
+    setSaving(true)
+    const { error } = await supabase.from('payments').insert([{
+      type: form.type,
+      date: form.date,
+      amount: parseFloat(form.amount) || 0,
+      counterparty: form.counterparty || null,
+      afm: form.afm || null,
+      payment_method: form.payment_method || null,
+      bank: form.bank || null,
+      reference: form.reference || null,
+      notes: form.notes || null
+    }])
+    if (error) notify('⚠️ ' + error.message, 'error')
+    else {
+      notify('✓ Αποθηκεύτηκε!')
+      setShowForm(false)
+      setForm({ type: 'payment', date: new Date().toISOString().split('T')[0], amount: '', counterparty: '', afm: '', payment_method: 'Μετρητά', bank: '', reference: '', notes: '' })
+      await loadPayments()
+    }
+    setSaving(false)
+  }
+
+  const deletePayment = async (id) => {
+    if (!confirm('Διαγραφή;')) return
+    await supabase.from('payments').delete().eq('id', id)
+    await loadPayments()
+    notify('Διαγράφηκε.')
+  }
+
+  const filtered = filterType === 'all' ? payments : payments.filter(p => p.type === filterType)
+  const totalReceipts = payments.filter(p => p.type === 'receipt').reduce((s, p) => s + (p.amount || 0), 0)
+  const totalPayments = payments.filter(p => p.type === 'payment').reduce((s, p) => s + (p.amount || 0), 0)
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
+        <h2 style={{ fontSize: 19, fontWeight: 700 }}>Πληρωμές & Εισπράξεις</h2>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <div style={{ background: '#0a2215', border: '1px solid #4ade8033', borderRadius: 7, padding: '4px 12px', textAlign: 'center' }}>
+            <div style={{ fontSize: 9, color: '#4ade80', fontWeight: 700 }}>ΕΙΣΠΡΑΞΕΙΣ</div>
+            <div style={{ fontFamily: 'monospace', fontSize: 13, color: '#4ade80', fontWeight: 700 }}>{fmt(totalReceipts)}</div>
+          </div>
+          <div style={{ background: '#2a0f0f', border: '1px solid #f8717133', borderRadius: 7, padding: '4px 12px', textAlign: 'center' }}>
+            <div style={{ fontSize: 9, color: '#f87171', fontWeight: 700 }}>ΠΛΗΡΩΜΕΣ</div>
+            <div style={{ fontFamily: 'monospace', fontSize: 13, color: '#f87171', fontWeight: 700 }}>{fmt(totalPayments)}</div>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 6, marginLeft: 'auto' }}>
+          {[['all','Όλα'],['receipt','Εισπράξεις'],['payment','Πληρωμές']].map(([v,l]) => (
+            <button key={v} onClick={() => setFilterType(v)} style={{ background: filterType===v ? '#1e2232' : 'transparent', color: filterType===v ? '#e8eaf0' : '#5a6070', border: '1px solid #2a3040', padding: '6px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>{l}</button>
+          ))}
+        </div>
+        <button onClick={() => setShowForm(!showForm)} style={{ background: 'linear-gradient(135deg,#4f8ef7,#7c5cf7)', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>+ Νέα</button>
+      </div>
+
+      {/* Φόρμα καταχώρησης */}
+      {showForm && (
+        <div style={{ background: '#13151f', border: '1px solid #1e2232', borderRadius: 12, padding: 20, marginBottom: 16 }}>
+          <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 700, letterSpacing: 1, marginBottom: 14 }}>ΝΕΑ ΚΙΝΗΣΗ</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+            <div>
+              <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΤΥΠΟΣ</label>
+              <select value={form.type} onChange={e => ef('type', e.target.value)}
+                style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '9px 12px', fontSize: 13, width: '100%', outline: 'none' }}>
+                <option value="receipt">💚 Είσπραξη (εισέπραξα)</option>
+                <option value="payment">🔴 Πληρωμή (πλήρωσα)</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΗΜΕΡΟΜΗΝΙΑ</label>
+              <input type="date" value={form.date} onChange={e => ef('date', e.target.value)}
+                style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '9px 12px', fontSize: 13, width: '100%', outline: 'none' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΠΟΣΟ €</label>
+              <input type="number" step="0.01" value={form.amount} onChange={e => ef('amount', e.target.value)}
+                style={{ background: '#0a0c13', border: '1px solid #2a3040', color: form.type === 'receipt' ? '#4ade80' : '#f87171', borderRadius: 7, padding: '9px 12px', fontSize: 14, fontWeight: 700, width: '100%', outline: 'none', fontFamily: 'monospace' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>{form.type === 'receipt' ? 'ΑΠΟ ΠΕΛΑΤΗ' : 'ΣΕ ΠΡΟΜΗΘΕΥΤΗ'}</label>
+              <input value={form.counterparty} onChange={e => ef('counterparty', e.target.value)} placeholder="Επωνυμία"
+                style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '9px 12px', fontSize: 13, width: '100%', outline: 'none' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΑΦΜ</label>
+              <input value={form.afm} onChange={e => ef('afm', e.target.value)}
+                style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '9px 12px', fontSize: 13, width: '100%', outline: 'none', fontFamily: 'monospace' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΤΡΟΠΟΣ ΠΛΗΡΩΜΗΣ</label>
+              <select value={form.payment_method} onChange={e => ef('payment_method', e.target.value)}
+                style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '9px 12px', fontSize: 13, width: '100%', outline: 'none' }}>
+                <option>Μετρητά</option>
+                <option>Τραπεζική μεταφορά</option>
+                <option>Επιταγή</option>
+                <option>Πιστωτική κάρτα</option>
+                <option>Χρεωστική κάρτα</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΑΡΙΘΜΟΣ ΑΝΑΦΟΡΑΣ</label>
+              <input value={form.reference} onChange={e => ef('reference', e.target.value)} placeholder="Αρ. επιταγής / παραπομπή"
+                style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '9px 12px', fontSize: 13, width: '100%', outline: 'none' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΣΗΜΕΙΩΣΕΙΣ</label>
+              <input value={form.notes} onChange={e => ef('notes', e.target.value)}
+                style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '9px 12px', fontSize: 13, width: '100%', outline: 'none' }} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, marginTop: 14, alignItems: 'center' }}>
+            <button onClick={savePayment} disabled={saving}
+              style={{ background: 'linear-gradient(135deg,#4f8ef7,#7c5cf7)', color: '#fff', border: 'none', padding: '10px 24px', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer', opacity: saving ? .7 : 1 }}>
+              {saving ? '⏳...' : '✓ Αποθήκευση'}
+            </button>
+            <label style={{ background: '#1e2232', color: '#e8eaf0', border: 'none', padding: '10px 16px', borderRadius: 8, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+              {scanning ? '🔍 Ανάγνωση...' : '📷 Σάρωση απόδειξης'}
+              <input type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => handleFile(e.target.files[0])} disabled={scanning} />
+            </label>
+            <button onClick={() => setShowForm(false)} style={{ background: 'transparent', color: '#5a6070', border: '1px solid #2a3040', padding: '10px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>Ακύρωση</button>
+          </div>
+        </div>
+      )}
+
+      {/* Λίστα κινήσεων */}
+      {filtered.length === 0 ? (
+        <div style={{ background: '#13151f', border: '1px solid #1e2232', borderRadius: 12, padding: 48, textAlign: 'center', color: '#5a6070' }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>💳</div>
+          <div style={{ fontWeight: 600 }}>Δεν υπάρχουν κινήσεις ακόμα</div>
+        </div>
+      ) : (
+        <div style={{ background: '#13151f', border: '1px solid #1e2232', borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
+              <thead>
+                <tr>
+                  {['ΗΜΕΡΟΜΗΝΙΑ', 'ΤΥΠΟΣ', 'ΕΠΩΝΥΜΙΑ', 'ΑΦΜ', 'ΤΡΟΠΟΣ', 'ΑΝΑΦΟΡΑ', 'ΠΟΣΟ', ''].map(h => (
+                    <th key={h} style={{ textAlign: h === 'ΠΟΣΟ' ? 'right' : 'left', fontSize: 10, fontWeight: 700, letterSpacing: 1, color: '#5a6070', padding: '9px 12px', borderBottom: '1px solid #1e2232' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(p => (
+                  <tr key={p.id} onMouseEnter={e => e.currentTarget.style.background = '#1a1d2b'} onMouseLeave={e => e.currentTarget.style.background = ''}>
+                    <td style={{ padding: '11px 12px', borderBottom: '1px solid #161824', fontSize: 12, color: '#9ca3af', fontFamily: 'monospace' }}>{fmtDate(p.date)}</td>
+                    <td style={{ padding: '11px 12px', borderBottom: '1px solid #161824', fontSize: 12 }}>
+                      <span style={{ background: p.type === 'receipt' ? '#0a2215' : '#2a0f0f', color: p.type === 'receipt' ? '#4ade80' : '#f87171', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
+                        {p.type === 'receipt' ? '💚 Είσπραξη' : '🔴 Πληρωμή'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '11px 12px', borderBottom: '1px solid #161824', fontSize: 13, fontWeight: 500 }}>{p.counterparty || '—'}</td>
+                    <td style={{ padding: '11px 12px', borderBottom: '1px solid #161824', fontSize: 11, color: '#5a6070', fontFamily: 'monospace' }}>{p.afm || '—'}</td>
+                    <td style={{ padding: '11px 12px', borderBottom: '1px solid #161824', fontSize: 11, color: '#5a6070' }}>{p.payment_method || '—'}</td>
+                    <td style={{ padding: '11px 12px', borderBottom: '1px solid #161824', fontSize: 11, color: '#5a6070' }}>{p.reference || '—'}</td>
+                    <td style={{ padding: '11px 12px', borderBottom: '1px solid #161824', fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 700, color: p.type === 'receipt' ? '#4ade80' : '#f87171' }}>{fmt(p.amount)}</td>
+                    <td style={{ padding: '11px 12px', borderBottom: '1px solid #161824' }}>
+                      <button onClick={() => deletePayment(p.id)} style={{ background: 'transparent', color: '#f87171', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>✕</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
