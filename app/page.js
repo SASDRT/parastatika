@@ -320,7 +320,7 @@ export default function App() {
                 {/* Αντισυμβαλλόμενος */}
                 <div style={C.section}>
                   <div style={C.sectionTitle(editForm.type === 'income' ? '#4ade80' : '#f87171')}>
-                    {editForm.type === 'income' ? 'ΠΕΛΑΤΗΣ' : 'ΠΡΟΜΗΘΕΥΤΗΣ'}
+                    {editForm.type === 'income' ? 'ΠΕΛΑΤΗΣ' : 'ΠΕΛΑΤΗΣ (ΑΓΟΡΑΣΤΗΣ)'}
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                     <InputF label="ΕΠΩΝΥΜΙΑ" field="counterparty" />
@@ -427,10 +427,10 @@ export default function App() {
                         <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#7c5cf7' }}>{inv.series || ''}{inv.number || '—'}</span>
                         <span style={{ fontSize: 11, color: '#4f8ef7', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inv.invoice_type || '—'}</span>
                         <div style={{ overflow: 'hidden' }}>
-                          <div style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inv.counterparty || '—'}</div>
-                          {inv.trade_name && <div style={{ fontSize: 10, color: '#5a6070', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>"{inv.trade_name}"</div>}
+                          <div style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inv.type === 'expense' ? (inv.issuer_name || inv.counterparty || '—') : (inv.counterparty || '—')}</div>
+                          {(inv.type === 'expense' ? inv.issuer_trade_name : inv.trade_name) && <div style={{ fontSize: 10, color: '#5a6070', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>"{inv.type === 'expense' ? inv.issuer_trade_name : inv.trade_name}"</div>}
                         </div>
-                        <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#5a6070' }}>{inv.afm || '—'}</span>
+                        <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#5a6070' }}>{inv.type === 'expense' ? (inv.issuer_afm || inv.afm || '—') : (inv.afm || '—')}</span>
                         <span style={{ fontFamily: 'monospace', fontSize: 12, textAlign: 'right' }}>{fmt(inv.subtotal)}</span>
                         <span style={{ fontFamily: 'monospace', fontSize: 12, textAlign: 'right', color: '#5a6070' }}>{fmt(inv.vat)}</span>
                         <span style={{ fontFamily: 'monospace', fontSize: 14, textAlign: 'right', fontWeight: 700, color }}>{fmt(inv.total)}</span>
