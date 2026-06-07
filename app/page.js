@@ -182,8 +182,7 @@ export default function App() {
         fmtN(i.subtotal), fmtN(i.vat), fmtN(i.total), esc(i.payment_method), esc(i.mark)
       ].join(','))
 
-      const invCsv = [invHeaders.join(','), ...invRows].join('
-')
+      const invCsv = [invHeaders.join(','), ...invRows].join('\n')
 
       // Payments CSV
       const payHeaders = ['Ημερομηνία','Τύπος','Επωνυμία','ΑΦΜ','Ποσό','Τρόπος','Αναφορά','Σημειώσεις']
@@ -192,7 +191,7 @@ export default function App() {
         esc(p.counterparty), esc(p.afm), fmtN(p.amount),
         esc(p.payment_method), esc(p.reference), esc(p.notes)
       ].join(','))
-      const payCsv = [payHeaders.join(','), ...payRows].join('
+      const payCsv = [payHeaders.join(","), ...payRows].join("\n")
 ')
 
       // Expenses CSV
@@ -201,7 +200,7 @@ export default function App() {
         fmtD(e.date), esc(e.category), esc(e.description), esc(e.vendor),
         fmtN(e.amount), fmtN(e.vat), esc(e.payment_method), esc(e.receipt_ref)
       ].join(','))
-      const expCsv = [expHeaders.join(','), ...expRows].join('
+      const expCsv = [expHeaders.join(","), ...expRows].join("\n")
 ')
 
       // Download all 3 files
