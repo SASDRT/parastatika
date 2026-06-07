@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 
 const fmt = (n) => new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' }).format(n || 0)
 const fmtDate = (d) => { if (!d) return '—'; try { return new Date(d).toLocaleDateString('el-GR') } catch { return d } }
-const TABS = ['Σάρωση', 'Έσοδα', 'Έξοδα', 'Πληρωμές', 'Γεν. Έξοδα', 'Καρτέλες', 'Υπόλοιπα', 'Αναφορές']
+const TABS = ['Dashboard', 'Σάρωση', 'Έσοδα', 'Έξοδα', 'Πληρωμές', 'Γεν. Έξοδα', 'Καρτέλες', 'Υπόλοιπα', 'Αναφορές']
 
 const C = {
   app: { minHeight: '100vh', background: '#0a0c13', color: '#e8eaf0', fontFamily: 'system-ui,-apple-system,sans-serif' },
@@ -181,7 +181,7 @@ export default function App() {
       notify('Παραστατικό αποθηκεύτηκε επιτυχώς!')
       setEditForm(null); setPreviewImg(null)
       await loadInvoices()
-      setTab(row.type === 'income' ? 1 : 2)
+      setTab(row.type === 'income' ? 2 : 3)
     }
     setSaving(false)
   }
@@ -391,9 +391,23 @@ export default function App() {
       <div style={C.content}>
 
         {/* ══════════════════════════════════════
-            TAB 0: ΣΑΡΩΣΗ
+            TAB 0: DASHBOARD
         ══════════════════════════════════════ */}
         {tab === 0 && (
+          <DashboardTab
+            income={income} expenses={expenses}
+            yearPayments={yearPayments}
+            generalExpenses={generalExpenses.filter(e => { const d=new Date(e.date); return d.getFullYear()===year&&(month===0||d.getMonth()+1===month) })}
+            invoices={invoices} payments={payments}
+            fmt={fmt} fmtDate={fmtDate} year={year} month={month} monthsFull={monthsFull}
+            setTab={setTab}
+          />
+        )}
+
+        {/* ══════════════════════════════════════
+            TAB 1: ΣΑΡΩΣΗ
+        ══════════════════════════════════════ */}
+        {tab === 1 && (
           <div style={{ display: 'grid', gridTemplateColumns: editForm ? '380px 1fr' : '1fr', gap: 20 }}>
             {/* Αριστερή στήλη */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -662,7 +676,7 @@ export default function App() {
         {/* ══════════════════════════════════════
             TAB 1 & 2: ΛΙΣΤΑ ΠΑΡΑΣΤΑΤΙΚΩΝ
         ══════════════════════════════════════ */}
-        {(tab === 1 || tab === 2) && (() => {
+        {(tab === 2 || tab === 3) && (() => {
           const list = tab === 1 ? income : expenses
           const color = tab === 1 ? '#4ade80' : '#f87171'
           const total = list.reduce((s, i) => s + (i.total || 0), 0)
@@ -679,9 +693,9 @@ export default function App() {
                 </div>
                 <button style={C.btnPrimary} onClick={() => {
                   setEditForm({ type: tab === 1 ? 'income' : 'expense', date: new Date().toISOString().split('T')[0], items: [] })
-                  setTab(0)
+                  setTab(1)
                 }}>+ Χειροκίνητη καταχώρηση</button>
-                <button style={C.btnGhost} onClick={() => { setEditForm(null); setPreviewImg(null); setTab(0) }}>+ Σάρωση</button>
+                <button style={C.btnGhost} onClick={() => { setEditForm(null); setPreviewImg(null); setTab(1) }}>+ Σάρωση</button>
               </div>
 
               {loading ? (
@@ -728,12 +742,12 @@ export default function App() {
         {/* ══════════════════════════════════════
             TAB 3: ΠΛΗΡΩΜΕΣ
         ══════════════════════════════════════ */}
-        {tab === 3 && <PaymentsTab payments={yearPayments} invoices={invoices} loadPayments={loadPayments} fmt={fmt} fmtDate={fmtDate} notify={notify} year={year} month={month} monthsFull={monthsFull} />}
+        {tab === 4 && <PaymentsTab payments={yearPayments} invoices={invoices} loadPayments={loadPayments} fmt={fmt} fmtDate={fmtDate} notify={notify} year={year} month={month} monthsFull={monthsFull} />}
 
         {/* ══════════════════════════════════════
             TAB 4: ΓΕΝΙΚΑ ΕΞΟΔΑ
         ══════════════════════════════════════ */}
-        {tab === 4 && <GeneralExpensesTab expenses={generalExpenses.filter(e => {
+        {tab === 5 && <GeneralExpensesTab expenses={generalExpenses.filter(e => {
           const d = new Date(e.date)
           return d.getFullYear() === year && (month === 0 || d.getMonth() + 1 === month)
         })} loadExpenses={loadExpenses} fmt={fmt} fmtDate={fmtDate} notify={notify} year={year} month={month} monthsFull={monthsFull} />}
@@ -741,14 +755,14 @@ export default function App() {
         {/* ══════════════════════════════════════
             TAB 5: ΚΑΡΤΕΛΕΣ
         ══════════════════════════════════════ */}
-        {tab === 5 && <KartelesTab invoices={[...income, ...expenses]} payments={yearPayments} byCounterparty={(t) => byCounterparty(t, yearPayments, [...income, ...expenses])} fmt={fmt} fmtDate={fmtDate} year={year} month={month} monthsFull={monthsFull} />}
+        {tab === 6 && <KartelesTab invoices={[...income, ...expenses]} payments={yearPayments} byCounterparty={(t) => byCounterparty(t, yearPayments, [...income, ...expenses])} fmt={fmt} fmtDate={fmtDate} year={year} month={month} monthsFull={monthsFull} />}
 
         {/* ══════════════════════════════════════
             TAB 4: ΥΠΟΛΟΙΠΑ
         ══════════════════════════════════════ */}
-        {tab === 7 && <ReportsTab income={income} expenses={expenses} yearPayments={yearPayments} generalExpenses={generalExpenses.filter(e => { const d=new Date(e.date); return d.getFullYear()===year&&(month===0||d.getMonth()+1===month) })} fmt={fmt} fmtDate={fmtDate} year={year} month={month} monthsFull={monthsFull} />}
+        {tab === 8 && <ReportsTab income={income} expenses={expenses} yearPayments={yearPayments} generalExpenses={generalExpenses.filter(e => { const d=new Date(e.date); return d.getFullYear()===year&&(month===0||d.getMonth()+1===month) })} fmt={fmt} fmtDate={fmtDate} year={year} month={month} monthsFull={monthsFull} />}
 
-        {tab === 6 && (
+        {tab === 7 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 22 }}>
             {[{ type: 'income', label: 'Πελάτες — Εισπρακτέα', color: '#4ade80', total: totalIncome },
               { type: 'expense', label: 'Προμηθευτές — Πληρωτέα', color: '#f87171', total: totalExpense }].map(({ type, label, color, total }) => (
@@ -2271,6 +2285,149 @@ function ReportsTab({ income, expenses, yearPayments, generalExpenses, fmt, fmtD
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════
+   DASHBOARD
+═══════════════════════════════════════════════════════════ */
+function DashboardTab({ income, expenses, yearPayments, generalExpenses, invoices, payments, fmt, fmtDate, year, month, monthsFull, setTab }) {
+  const period = month === 0 ? `Χρήση ${year}` : `${monthsFull[month-1]} ${year}`
+
+  const totalIncome = income.reduce((s, i) => s + (i.total || 0), 0)
+  const totalExpense = expenses.reduce((s, i) => s + (i.total || 0), 0)
+  const totalGeneral = generalExpenses.reduce((s, e) => s + (e.amount || 0), 0)
+  const totalReceipts = yearPayments.filter(p => p.type === 'receipt').reduce((s, p) => s + (p.amount || 0), 0)
+  const totalPaid = yearPayments.filter(p => p.type === 'payment').reduce((s, p) => s + (p.amount || 0), 0)
+  const netResult = totalIncome - totalExpense - totalGeneral
+  const pendingIn = totalIncome - totalReceipts
+  const pendingOut = totalExpense - totalPaid
+
+  // Τελευταίες κινήσεις
+  const recentInvoices = [...invoices].sort((a,b) => new Date(b.date)-new Date(a.date)).slice(0, 5)
+
+  // Τιμολόγια που λήγουν σύντομα (επόμενες 30 μέρες)
+  const today = new Date()
+  const in30 = new Date(today.getTime() + 30*24*60*60*1000)
+  const expiring = invoices.filter(inv => {
+    if (!inv.due_date) return false
+    const d = new Date(inv.due_date)
+    return d >= today && d <= in30
+  }).sort((a,b) => new Date(a.due_date)-new Date(b.due_date))
+
+  const Card = ({ label, value, sub, color, bg, onClick, badge }) => (
+    <div onClick={onClick} style={{ background: bg || '#13151f', border: `1px solid ${color}33`, borderRadius: 12, padding: '18px 20px', cursor: onClick ? 'pointer' : 'default', transition: 'all .15s', position: 'relative' }}
+      onMouseEnter={e => onClick && (e.currentTarget.style.border = `1px solid ${color}66`)}
+      onMouseLeave={e => onClick && (e.currentTarget.style.border = `1px solid ${color}33`)}>
+      {badge && <div style={{ position: 'absolute', top: 10, right: 10, background: '#f87171', color: '#fff', borderRadius: 10, fontSize: 10, fontWeight: 700, padding: '2px 6px' }}>{badge}</div>}
+      <div style={{ fontSize: 11, color: '#5a6070', fontWeight: 700, letterSpacing: 1, marginBottom: 8, textTransform: 'uppercase' }}>{label}</div>
+      <div style={{ fontFamily: 'monospace', fontSize: 24, fontWeight: 700, color }}>{value}</div>
+      {sub && <div style={{ fontSize: 11, color: '#5a6070', marginTop: 4 }}>{sub}</div>}
+    </div>
+  )
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <h2 style={{ fontSize: 19, fontWeight: 700 }}>Dashboard — {period}</h2>
+      </div>
+
+      {/* Κύρια σύνοψη */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
+        <Card label="Έσοδα" value={fmt(totalIncome)} sub={`${income.length} παραστατικά`} color="#4ade80" onClick={() => setTab(2)} />
+        <Card label="Έξοδα (τιμολόγια)" value={fmt(totalExpense)} sub={`${expenses.length} παραστατικά`} color="#f87171" onClick={() => setTab(3)} />
+        <Card label="Γενικά Έξοδα" value={fmt(totalGeneral)} sub={`${generalExpenses.length} εγγραφές`} color="#fbbf24" onClick={() => setTab(5)} />
+        <Card label="Αποτέλεσμα Περιόδου" value={fmt(netResult)} sub="Έσοδα − Έξοδα − Γεν.Έξοδα" color={netResult >= 0 ? '#4ade80' : '#f87171'} bg={netResult >= 0 ? '#0a2215' : '#2a0f0f'} />
+      </div>
+
+      {/* Εισπρακτέα / Πληρωτέα */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
+        <Card label="Εισπράχθηκαν" value={fmt(totalReceipts)} sub={`από σύνολο ${fmt(totalIncome)}`} color="#4ade80" onClick={() => setTab(4)} />
+        <Card label="Εισπρακτέα (υπόλοιπο)" value={fmt(Math.max(0, pendingIn))} sub={pendingIn > 0 ? "Αναμένεται είσπραξη" : "Όλα εισπράχθηκαν"} color={pendingIn > 0 ? '#fbbf24' : '#4ade80'} />
+        <Card label="Πληρώθηκαν" value={fmt(totalPaid)} sub={`από σύνολο ${fmt(totalExpense)}`} color="#f87171" onClick={() => setTab(4)} />
+        <Card label="Πληρωτέα (υπόλοιπο)" value={fmt(Math.max(0, pendingOut))} sub={pendingOut > 0 ? "Αναμένεται πληρωμή" : "Όλα πληρώθηκαν"} color={pendingOut > 0 ? '#fbbf24' : '#4ade80'} />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        {/* Τελευταίες κινήσεις */}
+        <div style={{ background: '#13151f', border: '1px solid #1e2232', borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid #1e2232', fontWeight: 700, fontSize: 13 }}>Τελευταίες Κινήσεις</div>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <tbody>
+              {recentInvoices.map(inv => (
+                <tr key={inv.id} onMouseEnter={e => e.currentTarget.style.background='#1a1d2b'} onMouseLeave={e => e.currentTarget.style.background=''}>
+                  <td style={{ padding: '10px 14px', borderBottom: '1px solid #161824', fontSize: 11, color: '#5a6070', fontFamily: 'monospace', width: 85 }}>{fmtDate(inv.date)}</td>
+                  <td style={{ padding: '10px 14px', borderBottom: '1px solid #161824', fontSize: 12 }}>
+                    <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180 }}>
+                      {inv.type === 'expense' ? (inv.issuer_name || inv.counterparty) : (inv.counterparty || inv.issuer_name)}
+                    </div>
+                    <div style={{ fontSize: 10, color: '#5a6070' }}>{inv.invoice_type || '—'}</div>
+                  </td>
+                  <td style={{ padding: '10px 14px', borderBottom: '1px solid #161824', fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 700, color: inv.type === 'income' ? '#4ade80' : '#f87171', whiteSpace: 'nowrap' }}>
+                    {inv.type === 'income' ? '+' : '-'}{fmt(inv.total)}
+                  </td>
+                </tr>
+              ))}
+              {recentInvoices.length === 0 && (
+                <tr><td colSpan={3} style={{ padding: 24, textAlign: 'center', color: '#5a6070', fontSize: 12 }}>Δεν υπάρχουν κινήσεις</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Υπενθυμίσεις - Λήξεις */}
+        <div style={{ background: '#13151f', border: `1px solid ${expiring.length > 0 ? '#fbbf2444' : '#1e2232'}`, borderRadius: 12, overflow: 'hidden' }}>
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid #1e2232', fontWeight: 700, fontSize: 13, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>Επερχόμενες Λήξεις (30 ημέρες)</span>
+            {expiring.length > 0 && <span style={{ background: '#f87171', color: '#fff', borderRadius: 10, fontSize: 11, fontWeight: 700, padding: '2px 8px' }}>{expiring.length}</span>}
+          </div>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <tbody>
+              {expiring.map(inv => {
+                const daysLeft = Math.ceil((new Date(inv.due_date) - today) / (1000*60*60*24))
+                return (
+                  <tr key={inv.id} onMouseEnter={e => e.currentTarget.style.background='#1a1d2b'} onMouseLeave={e => e.currentTarget.style.background=''}>
+                    <td style={{ padding: '10px 14px', borderBottom: '1px solid #161824', fontSize: 12 }}>
+                      <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 160 }}>
+                        {inv.type === 'expense' ? (inv.issuer_name || inv.counterparty) : (inv.counterparty)}
+                      </div>
+                      <div style={{ fontSize: 10, color: '#5a6070' }}>{inv.series}{inv.number} · {inv.invoice_type}</div>
+                    </td>
+                    <td style={{ padding: '10px 14px', borderBottom: '1px solid #161824', fontSize: 11, color: daysLeft <= 7 ? '#f87171' : '#fbbf24', fontWeight: 700, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      {daysLeft === 0 ? 'Σήμερα!' : `${daysLeft} μέρες`}
+                    </td>
+                    <td style={{ padding: '10px 14px', borderBottom: '1px solid #161824', fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 700, color: inv.type === 'income' ? '#4ade80' : '#f87171', whiteSpace: 'nowrap' }}>
+                      {fmt(inv.total)}
+                    </td>
+                  </tr>
+                )
+              })}
+              {expiring.length === 0 && (
+                <tr><td colSpan={3} style={{ padding: 24, textAlign: 'center', color: '#5a6070', fontSize: 12 }}>Δεν υπάρχουν επερχόμενες λήξεις</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* ΦΠΑ Ανάλυση */}
+      <div style={{ background: '#13151f', border: '1px solid #1e2232', borderRadius: 12, padding: 20, marginTop: 16 }}>
+        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14 }}>Ανάλυση ΦΠΑ — {period}</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+          {[
+            { label: 'ΦΠΑ Εσόδων (χρεώσατε)', value: income.reduce((s,i)=>s+(i.vat||0),0), color: '#4ade80', sub: 'Πρέπει να αποδώσετε' },
+            { label: 'ΦΠΑ Εξόδων (πληρώσατε)', value: expenses.reduce((s,i)=>s+(i.vat||0),0) + generalExpenses.reduce((s,e)=>s+(e.vat||0),0), color: '#f87171', sub: 'Εκπίπτει' },
+            { label: 'ΦΠΑ Καταβλητέο', value: income.reduce((s,i)=>s+(i.vat||0),0) - expenses.reduce((s,i)=>s+(i.vat||0),0) - generalExpenses.reduce((s,e)=>s+(e.vat||0),0), color: '#fbbf24', sub: 'Προς απόδοση στην εφορία' },
+          ].map(({ label, value, color, sub }) => (
+            <div key={label} style={{ background: '#0a0c13', borderRadius: 9, padding: '14px 16px', border: `1px solid ${color}22` }}>
+              <div style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, letterSpacing: 1, marginBottom: 6 }}>{label}</div>
+              <div style={{ fontFamily: 'monospace', fontSize: 20, fontWeight: 700, color }}>{fmt(Math.abs(value))}</div>
+              <div style={{ fontSize: 10, color: '#5a6070', marginTop: 4 }}>{sub}</div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
