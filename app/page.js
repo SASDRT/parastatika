@@ -160,6 +160,72 @@ export default function App() {
     }
   }
 
+  const handleExportExcel = async () => {
+    try {
+      notify('Προετοιμασία Excel...')
+      const [inv, pay, exp] = await Promise.all([
+        supabase.from('invoices').select('*').order('date', { ascending: false }),
+        supabase.from('payments').select('*').order('date', { ascending: false }),
+        supabase.from('expenses').select('*').order('date', { ascending: false })
+      ])
+
+      // Build CSV content for each sheet (as separate downloads)
+      const fmtN = (n) => (n || 0).toFixed(2)
+      const fmtD = (d) => d ? new Date(d).toLocaleDateString('el-GR') : ''
+      const esc = (s) => s ? `"${String(s).replace(/"/g, '""')}"` : ''
+
+      // Invoices CSV
+      const invHeaders = ['Ημερομηνία','Τύπος','Είδος','Σειρά','Αριθμός','Εκδότης','ΑΦΜ Εκδότη','Αντισυμβαλλόμενος','ΑΦΜ','Καθαρή','ΦΠΑ','Σύνολο','Τρόπος Πληρωμής','MARK']
+      const invRows = (inv.data || []).map(i => [
+        fmtD(i.date), i.type==='income'?'Έσοδο':'Έξοδο', esc(i.invoice_type), esc(i.series), esc(i.number),
+        esc(i.issuer_name), esc(i.issuer_afm), esc(i.counterparty), esc(i.afm),
+        fmtN(i.subtotal), fmtN(i.vat), fmtN(i.total), esc(i.payment_method), esc(i.mark)
+      ].join(','))
+
+      const invCsv = [invHeaders.join(','), ...invRows].join('
+')
+
+      // Payments CSV
+      const payHeaders = ['Ημερομηνία','Τύπος','Επωνυμία','ΑΦΜ','Ποσό','Τρόπος','Αναφορά','Σημειώσεις']
+      const payRows = (pay.data || []).map(p => [
+        fmtD(p.date), p.type==='receipt'?'Είσπραξη':'Πληρωμή',
+        esc(p.counterparty), esc(p.afm), fmtN(p.amount),
+        esc(p.payment_method), esc(p.reference), esc(p.notes)
+      ].join(','))
+      const payCsv = [payHeaders.join(','), ...payRows].join('
+')
+
+      // Expenses CSV
+      const expHeaders = ['Ημερομηνία','Κατηγορία','Περιγραφή','Προμηθευτής','Ποσό','ΦΠΑ','Τρόπος','Αρ. Απόδειξης']
+      const expRows = (exp.data || []).map(e => [
+        fmtD(e.date), esc(e.category), esc(e.description), esc(e.vendor),
+        fmtN(e.amount), fmtN(e.vat), esc(e.payment_method), esc(e.receipt_ref)
+      ].join(','))
+      const expCsv = [expHeaders.join(','), ...expRows].join('
+')
+
+      // Download all 3 files
+      const today = new Date().toISOString().split('T')[0]
+      const downloads = [
+        { name: `παραστατικα-${today}.csv`, content: '﻿' + invCsv },
+        { name: `πληρωμες-${today}.csv`, content: '﻿' + payCsv },
+        { name: `γεν-εξοδα-${today}.csv`, content: '﻿' + expCsv },
+      ]
+
+      downloads.forEach(({ name, content: c }) => {
+        const blob = new Blob([c], { type: 'text/csv;charset=utf-8' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url; a.download = name; a.click()
+        URL.revokeObjectURL(url)
+      })
+
+      notify(`Export ολοκληρώθηκε! 3 αρχεία CSV (ανοίγουν σε Excel)`)
+    } catch(e) {
+      notify('Σφάλμα export: ' + e.message, 'error')
+    }
+  }
+
   const notify = (msg, type = 'success') => {
     setNotification({ msg, type })
     setTimeout(() => setNotification(''), 4000)
@@ -407,6 +473,7 @@ export default function App() {
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
             <button onClick={handleBackup} style={{ background: 'transparent', color: '#5a6070', border: '1px solid #2a3040', padding: '5px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>Backup</button>
+            <button onClick={handleExportExcel} style={{ background: 'transparent', color: '#5a6070', border: '1px solid #2a3040', padding: '5px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>Export CSV</button>
             <button onClick={handleLogout} style={{ background: 'transparent', color: '#5a6070', border: '1px solid #2a3040', padding: '5px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>Αποσύνδεση</button>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
