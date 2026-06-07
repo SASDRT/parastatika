@@ -1,9 +1,7 @@
-import { createClient } from '@supabase/supabase-js'
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-
 export async function POST(request) {
   try {
     const { traders } = await request.json()
+
     const rows = traders.map(t => {
       const parts = (t.comName || '').split('||')
       return {
@@ -21,9 +19,36 @@ export async function POST(request) {
         is_supplier: t.issupplier === 1
       }
     }).filter(r => r.name)
-    await supabase.from('traders').delete().neq('id', 0)
-    const { error } = await supabase.from('traders').insert(rows)
-    if (error) return Response.json({ success: false, error: error.message }, { status: 500 })
+
+    const supaUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supaKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    const headers = {
+      'Content-Type': 'application/json',
+      'apikey': supaKey,
+      'Authorization': `Bearer ${supaKey}`,
+      'Prefer': 'return=minimal'
+    }
+
+    // Delete all existing
+    await fetch(`${supaUrl}/rest/v1/traders?id=gte.0`, {
+      method: 'DELETE',
+      headers
+    })
+
+    // Insert in batches of 50
+    for (let i = 0; i < rows.length; i += 50) {
+      const batch = rows.slice(i, i + 50)
+      const res = await fetch(`${supaUrl}/rest/v1/traders`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(batch)
+      })
+      if (!res.ok) {
+        const err = await res.text()
+        return Response.json({ success: false, error: err }, { status: 500 })
+      }
+    }
+
     return Response.json({ success: true, count: rows.length })
   } catch (error) {
     return Response.json({ success: false, error: error.message }, { status: 500 })
