@@ -1041,9 +1041,13 @@ function TraderSearch({ value, onChange, onSelect, type = 'all', placeholder = '
     const timer = setTimeout(async () => {
       setLoading(true)
       try {
-        const res = await fetch(`/api/search-traders?q=${encodeURIComponent(value)}&type=${type}`)
-        const json = await res.json()
-        if (json.success) { setResults(json.data); setShow(true) }
+        let query = supabase.from('traders').select('name,trade_name,afm,city,phone,is_customer,is_supplier')
+          .or(`name.ilike.%${value}%,trade_name.ilike.%${value}%,afm.ilike.%${value}%`)
+          .limit(10).order('name')
+        if (type === 'customer') query = query.eq('is_customer', true)
+        if (type === 'supplier') query = query.eq('is_supplier', true)
+        const { data, error } = await query
+        if (!error) { setResults(data || []); setShow(true) }
       } catch(e) {}
       setLoading(false)
     }, 300)
