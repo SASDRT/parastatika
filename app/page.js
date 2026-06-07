@@ -985,7 +985,7 @@ function KartelesTab({ invoices, payments, byCounterparty, fmt, fmtDate }) {
                         </td>
                       </tr>
                       {isInvoice && expandedInvId === mov.id && (mov.items||[]).length > 0 && (
-                        <tr>
+                        <tr key={mov.id + '_items'}>
                           <td colSpan={8} style={{ padding: 0, background: '#0a0c13' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                               <thead>
@@ -1012,7 +1012,6 @@ function KartelesTab({ invoices, payments, byCounterparty, fmt, fmtDate }) {
                           </td>
                         </tr>
                       )}
-                    )
                     })}
                   </tbody>
                 </table>
