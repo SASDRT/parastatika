@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 
 const fmt = (n) => new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' }).format(n || 0)
 const fmtDate = (d) => { if (!d) return '—'; try { return new Date(d).toLocaleDateString('el-GR') } catch { return d } }
-const TABS = ['Σάρωση', 'Έσοδα', 'Έξοδα', 'Πληρωμές', 'Καρτέλες', 'Υπόλοιπα']
+const TABS = ['Σάρωση', 'Έσοδα', 'Έξοδα', 'Πληρωμές', 'Γεν. Έξοδα', 'Καρτέλες', 'Υπόλοιπα']
 
 const C = {
   app: { minHeight: '100vh', background: '#0a0c13', color: '#e8eaf0', fontFamily: 'system-ui,-apple-system,sans-serif' },
@@ -47,6 +47,7 @@ export default function App() {
   const [saving, setSaving] = useState(false)
   const [expandedId, setExpandedId] = useState(null)
   const [payments, setPayments] = useState([])
+  const [expenses, setExpenses] = useState([])
   const [year, setYear] = useState(new Date().getFullYear())
   const [month, setMonth] = useState(0) // 0 = όλοι οι μήνες
   const [showPeriodPicker, setShowPeriodPicker] = useState(false)
@@ -66,7 +67,7 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (session) { loadInvoices(); loadPayments() }
+    if (session) { loadInvoices(); loadPayments(); loadExpenses() }
   }, [session])
 
   const loadInvoices = async () => {
@@ -79,6 +80,11 @@ export default function App() {
   const loadPayments = async () => {
     const { data, error } = await supabase.from('payments').select('*').order('date', { ascending: false })
     if (!error) setPayments(data || [])
+  }
+
+  const loadExpenses = async () => {
+    const { data, error } = await supabase.from('expenses').select('*').order('date', { ascending: false })
+    if (!error) setExpenses(data || [])
   }
 
   const handleLogin = async () => {
@@ -721,14 +727,22 @@ export default function App() {
         {tab === 3 && <PaymentsTab payments={yearPayments} invoices={invoices} loadPayments={loadPayments} fmt={fmt} fmtDate={fmtDate} notify={notify} year={year} month={month} monthsFull={monthsFull} />}
 
         {/* ══════════════════════════════════════
-            TAB 4: ΚΑΡΤΕΛΕΣ
+            TAB 4: ΓΕΝΙΚΑ ΕΞΟΔΑ
         ══════════════════════════════════════ */}
-        {tab === 4 && <KartelesTab invoices={[...income, ...expenses]} payments={yearPayments} byCounterparty={(t) => byCounterparty(t, yearPayments, [...income, ...expenses])} fmt={fmt} fmtDate={fmtDate} year={year} month={month} monthsFull={monthsFull} />}
+        {tab === 4 && <GeneralExpensesTab expenses={expenses.filter(e => {
+          const d = new Date(e.date)
+          return d.getFullYear() === year && (month === 0 || d.getMonth() + 1 === month)
+        })} loadExpenses={loadExpenses} fmt={fmt} fmtDate={fmtDate} notify={notify} year={year} month={month} monthsFull={monthsFull} />}
+
+        {/* ══════════════════════════════════════
+            TAB 5: ΚΑΡΤΕΛΕΣ
+        ══════════════════════════════════════ */}
+        {tab === 5 && <KartelesTab invoices={[...income, ...expenses]} payments={yearPayments} byCounterparty={(t) => byCounterparty(t, yearPayments, [...income, ...expenses])} fmt={fmt} fmtDate={fmtDate} year={year} month={month} monthsFull={monthsFull} />}
 
         {/* ══════════════════════════════════════
             TAB 4: ΥΠΟΛΟΙΠΑ
         ══════════════════════════════════════ */}
-        {tab === 5 && (
+        {tab === 6 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 22 }}>
             {[{ type: 'income', label: 'Πελάτες — Εισπρακτέα', color: '#4ade80', total: totalIncome },
               { type: 'expense', label: 'Προμηθευτές — Πληρωτέα', color: '#f87171', total: totalExpense }].map(({ type, label, color, total }) => (
@@ -1602,6 +1616,278 @@ function PaymentsTab({ payments, invoices, loadPayments, fmt, fmtDate, notify, y
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ΓΕΝΙΚΑ ΕΞΟΔΑ
+═══════════════════════════════════════════════════════════ */
+const EXPENSE_CATEGORIES = [
+  'Διόδια', 'Καύσιμα', 'Στάθμευση', 'Τηλεφωνία', 'Ίντερνετ',
+  'Αναλώσιμα', 'Γραφική ύλη', 'Φαγητό/Καφές', 'Ταχυδρομικά',
+  'Συντήρηση οχήματος', 'Ασφάλεια', 'Ενοίκιο', 'ΔΕΗ/ΕΥΔΑΠ',
+  'Διαφήμιση', 'Λογισμικό', 'Άλλο'
+]
+
+function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year, month, monthsFull }) {
+  const [showForm, setShowForm] = useState(false)
+  const [scanning, setScanning] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [filterCat, setFilterCat] = useState('all')
+  const [form, setForm] = useState({
+    date: new Date().toISOString().split('T')[0],
+    category: 'Διόδια',
+    description: '',
+    amount: '',
+    vat: '',
+    payment_method: 'Μετρητά',
+    receipt_ref: '',
+    vendor: '',
+    notes: ''
+  })
+
+  const ef = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
+  const handleFile = async (file) => {
+    if (!file) return
+    setScanning(true)
+    const reader = new FileReader()
+    reader.onload = async (e) => {
+      const dataUrl = e.target.result
+      try {
+        const res = await fetch('/api/ocr', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ base64: dataUrl.split(',')[1], mediaType: file.type || 'image/jpeg', mode: 'expense' })
+        })
+        const json = await res.json()
+        if (json.success && json.data) {
+          const d = json.data
+          setForm(f => ({
+            ...f,
+            date: d.date || f.date,
+            category: d.category || f.category,
+            description: d.description || f.description,
+            amount: d.amount || f.amount,
+            vat: d.vat || f.vat,
+            vendor: d.vendor || f.vendor,
+            receipt_ref: d.receipt_ref || f.receipt_ref,
+            payment_method: d.payment_method || f.payment_method,
+            notes: d.notes || f.notes
+          }))
+          setShowForm(true)
+          notify('Η απόδειξη διαβάστηκε!')
+        } else notify('Δεν μπόρεσα να διαβάσω.', 'error')
+      } catch(e) { notify('Σφάλμα: ' + e.message, 'error') }
+      setScanning(false)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const saveExpense = async () => {
+    if (!form.amount || !form.date) { notify('Συμπλήρωσε ημερομηνία και ποσό!', 'error'); return }
+    setSaving(true)
+    const { error } = await supabase.from('expenses').insert([{
+      date: form.date,
+      category: form.category,
+      description: form.description || null,
+      amount: parseFloat(form.amount) || 0,
+      vat: parseFloat(form.vat) || 0,
+      payment_method: form.payment_method || 'Μετρητά',
+      receipt_ref: form.receipt_ref || null,
+      vendor: form.vendor || null,
+      notes: form.notes || null
+    }])
+    if (error) notify('Σφάλμα: ' + error.message, 'error')
+    else {
+      notify('Αποθηκεύτηκε!')
+      setShowForm(false)
+      setForm({ date: new Date().toISOString().split('T')[0], category: 'Διόδια', description: '', amount: '', vat: '', payment_method: 'Μετρητά', receipt_ref: '', vendor: '', notes: '' })
+      await loadExpenses()
+    }
+    setSaving(false)
+  }
+
+  const deleteExpense = async (id) => {
+    if (!confirm('Διαγραφή;')) return
+    await supabase.from('expenses').delete().eq('id', id)
+    await loadExpenses()
+    notify('Διαγράφηκε.')
+  }
+
+  const filtered = filterCat === 'all' ? expenses : expenses.filter(e => e.category === filterCat)
+  const total = filtered.reduce((s, e) => s + (e.amount || 0), 0)
+  const totalVat = filtered.reduce((s, e) => s + (e.vat || 0), 0)
+
+  // Σύνολα ανά κατηγορία
+  const byCat = {}
+  expenses.forEach(e => {
+    if (!byCat[e.category]) byCat[e.category] = 0
+    byCat[e.category] += e.amount || 0
+  })
+  const catSorted = Object.entries(byCat).sort((a, b) => b[1] - a[1])
+
+  const period = month === 0 ? `${year}` : `${monthsFull[month-1]} ${year}`
+
+  return (
+    <div>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
+        <h2 style={{ fontSize: 19, fontWeight: 700 }}>Γενικά Έξοδα — {period}</h2>
+        <div style={{ background: '#2a0f0f', border: '1px solid #f8717133', borderRadius: 7, padding: '4px 12px' }}>
+          <div style={{ fontSize: 9, color: '#f87171', fontWeight: 700 }}>ΣΥΝΟΛΟ</div>
+          <div style={{ fontFamily: 'monospace', fontSize: 13, color: '#f87171', fontWeight: 700 }}>{fmt(total)}</div>
+        </div>
+        {totalVat > 0 && (
+          <div style={{ background: '#1a1d27', border: '1px solid #2a3040', borderRadius: 7, padding: '4px 12px' }}>
+            <div style={{ fontSize: 9, color: '#5a6070', fontWeight: 700 }}>ΦΠΑ</div>
+            <div style={{ fontFamily: 'monospace', fontSize: 13, color: '#9ca3af', fontWeight: 700 }}>{fmt(totalVat)}</div>
+          </div>
+        )}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+          <label style={{ background: '#1e2232', color: '#e8eaf0', border: '1px solid #2a3040', padding: '9px 14px', borderRadius: 8, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+            {scanning ? 'Ανάγνωση...' : 'Σάρωση απόδειξης'}
+            <input type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => handleFile(e.target.files[0])} disabled={scanning} />
+          </label>
+          <button onClick={() => setShowForm(!showForm)} style={{ background: 'linear-gradient(135deg,#4f8ef7,#7c5cf7)', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>+ Νέο</button>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 16 }}>
+        {/* Κατηγορίες αριστερά */}
+        <div>
+          <div style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, letterSpacing: 1, marginBottom: 8 }}>ΚΑΤΗΓΟΡΙΕΣ</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <div onClick={() => setFilterCat('all')}
+              style={{ padding: '9px 12px', borderRadius: 7, cursor: 'pointer', background: filterCat === 'all' ? '#2a0f0f' : '#0f1117', border: `1px solid ${filterCat === 'all' ? '#f8717166' : '#2a3040'}`, display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 12, color: filterCat === 'all' ? '#f87171' : '#9ca3af', fontWeight: filterCat === 'all' ? 700 : 400 }}>Όλες</span>
+              <span style={{ fontFamily: 'monospace', fontSize: 12, color: '#f87171', fontWeight: 700 }}>{fmt(expenses.reduce((s,e)=>s+(e.amount||0),0))}</span>
+            </div>
+            {catSorted.map(([cat, amt]) => (
+              <div key={cat} onClick={() => setFilterCat(cat)}
+                style={{ padding: '9px 12px', borderRadius: 7, cursor: 'pointer', background: filterCat === cat ? '#2a0f0f' : '#0f1117', border: `1px solid ${filterCat === cat ? '#f8717166' : '#2a3040'}`, display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: 12, color: filterCat === cat ? '#f87171' : '#9ca3af', fontWeight: filterCat === cat ? 700 : 400 }}>{cat}</span>
+                <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#f87171' }}>{fmt(amt)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Δεξιά */}
+        <div>
+          {/* Φόρμα */}
+          {showForm && (
+            <div style={{ background: '#13151f', border: '1px solid #1e2232', borderRadius: 12, padding: 18, marginBottom: 14 }}>
+              <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 700, letterSpacing: 1, marginBottom: 14 }}>ΝΕΟ ΕΞΟΔΟ</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+                <div>
+                  <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΗΜΕΡΟΜΗΝΙΑ</label>
+                  <input type="date" value={form.date} onChange={e => ef('date', e.target.value)}
+                    style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '8px 10px', fontSize: 13, width: '100%', outline: 'none' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΚΑΤΗΓΟΡΙΑ</label>
+                  <select value={form.category} onChange={e => ef('category', e.target.value)}
+                    style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '8px 10px', fontSize: 13, width: '100%', outline: 'none' }}>
+                    {EXPENSE_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΠΟΣΟ €</label>
+                  <input type="number" step="0.01" value={form.amount} onChange={e => ef('amount', e.target.value)}
+                    style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#f87171', borderRadius: 7, padding: '8px 10px', fontSize: 14, fontWeight: 700, width: '100%', outline: 'none', fontFamily: 'monospace' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΦΠΑ €</label>
+                  <input type="number" step="0.01" value={form.vat} onChange={e => ef('vat', e.target.value)}
+                    style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '8px 10px', fontSize: 13, width: '100%', outline: 'none', fontFamily: 'monospace' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΠΡΟΜΗΘΕΥΤΗΣ</label>
+                  <input value={form.vendor} onChange={e => ef('vendor', e.target.value)} placeholder="π.χ. Aegean Motorway"
+                    style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '8px 10px', fontSize: 13, width: '100%', outline: 'none' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΤΡΟΠΟΣ ΠΛΗΡΩΜΗΣ</label>
+                  <select value={form.payment_method} onChange={e => ef('payment_method', e.target.value)}
+                    style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '8px 10px', fontSize: 13, width: '100%', outline: 'none' }}>
+                    <option>Μετρητά</option>
+                    <option>Χρεωστική κάρτα</option>
+                    <option>Πιστωτική κάρτα</option>
+                    <option>Τραπεζική μεταφορά</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΑΡ. ΑΠΟΔΕΙΞΗΣ</label>
+                  <input value={form.receipt_ref} onChange={e => ef('receipt_ref', e.target.value)}
+                    style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '8px 10px', fontSize: 13, width: '100%', outline: 'none', fontFamily: 'monospace' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΠΕΡΙΓΡΑΦΗ</label>
+                  <input value={form.description} onChange={e => ef('description', e.target.value)} placeholder="π.χ. Α/Θ Θεσσαλονίκη"
+                    style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '8px 10px', fontSize: 13, width: '100%', outline: 'none' }} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+                <button onClick={saveExpense} disabled={saving}
+                  style={{ background: 'linear-gradient(135deg,#4f8ef7,#7c5cf7)', color: '#fff', border: 'none', padding: '9px 22px', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer', opacity: saving ? .7 : 1 }}>
+                  {saving ? '...' : 'Αποθήκευση'}
+                </button>
+                <button onClick={() => setShowForm(false)} style={{ background: 'transparent', color: '#5a6070', border: '1px solid #2a3040', padding: '9px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>Ακύρωση</button>
+              </div>
+            </div>
+          )}
+
+          {/* Λίστα */}
+          {filtered.length === 0 ? (
+            <div style={{ background: '#13151f', border: '1px solid #1e2232', borderRadius: 12, padding: 48, textAlign: 'center', color: '#5a6070' }}>
+              <div style={{ fontSize: 28, marginBottom: 10 }}>🧾</div>
+              <div style={{ fontWeight: 600 }}>Δεν υπάρχουν έξοδα για αυτή την περίοδο</div>
+              <div style={{ fontSize: 12, marginTop: 6 }}>Σκάναρε απόδειξη ή πρόσθεσε χειροκίνητα</div>
+            </div>
+          ) : (
+            <div style={{ background: '#13151f', border: '1px solid #1e2232', borderRadius: 12, overflow: 'hidden' }}>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr>
+                      {['ΗΜΕΡΟΜΗΝΙΑ', 'ΚΑΤΗΓΟΡΙΑ', 'ΠΕΡΙΓΡΑΦΗ', 'ΠΡΟΜΗΘΕΥΤΗΣ', 'ΤΡΟΠΟΣ', 'ΑΡ. ΑΠΟΔ.', 'ΦΠΑ', 'ΠΟΣΟ', ''].map(h => (
+                        <th key={h} style={{ textAlign: h==='ΠΟΣΟ'||h==='ΦΠΑ' ? 'right' : 'left', fontSize: 10, fontWeight: 700, letterSpacing: 1, color: '#5a6070', padding: '9px 12px', borderBottom: '1px solid #1e2232' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map(e => (
+                      <tr key={e.id} onMouseEnter={ev => ev.currentTarget.style.background='#1a1d2b'} onMouseLeave={ev => ev.currentTarget.style.background=''}>
+                        <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 12, color: '#9ca3af', fontFamily: 'monospace' }}>{fmtDate(e.date)}</td>
+                        <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 12 }}>
+                          <span style={{ background: '#2a0f0f', color: '#f87171', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>{e.category}</span>
+                        </td>
+                        <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 12, color: '#9ca3af' }}>{e.description || '—'}</td>
+                        <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 12 }}>{e.vendor || '—'}</td>
+                        <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 11, color: '#5a6070' }}>{e.payment_method || '—'}</td>
+                        <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 11, color: '#5a6070', fontFamily: 'monospace' }}>{e.receipt_ref || '—'}</td>
+                        <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 12, fontFamily: 'monospace', textAlign: 'right', color: '#5a6070' }}>{e.vat > 0 ? fmt(e.vat) : '—'}</td>
+                        <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 700, color: '#f87171' }}>{fmt(e.amount)}</td>
+                        <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824' }}>
+                          <button onClick={() => deleteExpense(e.id)} style={{ background: 'transparent', color: '#f87171', border: 'none', fontSize: 12, cursor: 'pointer' }}>✕</button>
+                        </td>
+                      </tr>
+                    ))}
+                    <tr style={{ background: '#0f1117' }}>
+                      <td colSpan={6} style={{ padding: '10px 12px', fontSize: 12, color: '#5a6070', fontWeight: 700 }}>ΣΥΝΟΛΟ</td>
+                      <td style={{ padding: '10px 12px', fontSize: 12, fontFamily: 'monospace', textAlign: 'right', color: '#5a6070', fontWeight: 700 }}>{totalVat > 0 ? fmt(totalVat) : '—'}</td>
+                      <td style={{ padding: '10px 12px', fontSize: 15, fontFamily: 'monospace', textAlign: 'right', fontWeight: 700, color: '#f87171' }}>{fmt(total)}</td>
+                      <td></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
