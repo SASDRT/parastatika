@@ -42,7 +42,11 @@ export default function App() {
   const [expandedId, setExpandedId] = useState(null)
   const [payments, setPayments] = useState([])
   const [year, setYear] = useState(new Date().getFullYear())
+  const [month, setMonth] = useState(0) // 0 = όλοι οι μήνες
+  const [showPeriodPicker, setShowPeriodPicker] = useState(false)
   const years = [2021, 2022, 2023, 2024, 2025, 2026]
+  const months = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαι', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ']
+  const monthsFull = ['Ιανουάριος', 'Φεβρουάριος', 'Μάρτιος', 'Απρίλιος', 'Μάιος', 'Ιούνιος', 'Ιούλιος', 'Αύγουστος', 'Σεπτέμβριος', 'Οκτώβριος', 'Νοέμβριος', 'Δεκέμβριος']
 
   useEffect(() => { loadInvoices(); loadPayments() }, [])
 
@@ -150,11 +154,22 @@ export default function App() {
     await loadInvoices(); notify('Διαγράφηκε.')
   }
 
-  const income = invoices.filter(i => i.type === 'income' && new Date(i.date).getFullYear() === year)
-  const expenses = invoices.filter(i => i.type === 'expense' && new Date(i.date).getFullYear() === year)
+  const income = invoices.filter(i => {
+    if (i.type !== 'income') return false
+    const d = new Date(i.date)
+    return d.getFullYear() === year && (month === 0 || d.getMonth() + 1 === month)
+  })
+  const expenses = invoices.filter(i => {
+    if (i.type !== 'expense') return false
+    const d = new Date(i.date)
+    return d.getFullYear() === year && (month === 0 || d.getMonth() + 1 === month)
+  })
   const totalIncome = income.reduce((s, i) => s + (i.total || 0), 0)
   const totalExpense = expenses.reduce((s, i) => s + (i.total || 0), 0)
-  const yearPayments = payments.filter(p => new Date(p.date).getFullYear() === year)
+  const yearPayments = payments.filter(p => {
+    const d = new Date(p.date)
+    return d.getFullYear() === year && (month === 0 || d.getMonth() + 1 === month)
+  })
   const totalReceipts = yearPayments.filter(p => p.type === 'receipt').reduce((s, p) => s + (p.amount || 0), 0)
   const totalPaid = yearPayments.filter(p => p.type === 'payment').reduce((s, p) => s + (p.amount || 0), 0)
   const balance = totalIncome - totalExpense
@@ -242,13 +257,38 @@ export default function App() {
             <span>Παραστατικά</span>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <div style={{ display: 'flex', gap: 4, background: '#0a0c13', borderRadius: 8, padding: 4, border: '1px solid #1e2232' }}>
-              {years.map(y => (
-                <button key={y} onClick={() => setYear(y)}
-                  style={{ background: year === y ? 'linear-gradient(135deg,#4f8ef7,#7c5cf7)' : 'transparent', color: year === y ? '#fff' : '#5a6070', border: 'none', padding: '4px 10px', borderRadius: 6, fontSize: 12, fontWeight: year === y ? 700 : 400, cursor: 'pointer' }}>
-                  {y}
-                </button>
-              ))}
+            <div style={{ position: 'relative' }}>
+              <button onClick={() => setShowPeriodPicker(!showPeriodPicker)}
+                style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 8, padding: '6px 14px', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}>
+                {month === 0 ? `${year} — Όλο το έτος` : `${monthsFull[month-1]} ${year}`}
+                <span style={{ color: '#5a6070', fontSize: 10 }}>▼</span>
+              </button>
+              {showPeriodPicker && (
+                <div style={{ position: 'absolute', top: '110%', right: 0, background: '#13151f', border: '1px solid #2a3040', borderRadius: 10, zIndex: 999, padding: 14, minWidth: 320, boxShadow: '0 8px 32px rgba(0,0,0,.6)' }}>
+                  <div style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, marginBottom: 8, letterSpacing: 1 }}>ΕΤΟΣ</div>
+                  <div style={{ display: 'flex', gap: 4, marginBottom: 12, flexWrap: 'wrap' }}>
+                    {years.map(y => (
+                      <button key={y} onClick={() => setYear(y)}
+                        style={{ background: year === y ? 'linear-gradient(135deg,#4f8ef7,#7c5cf7)' : '#0a0c13', color: year === y ? '#fff' : '#9ca3af', border: `1px solid ${year === y ? 'transparent' : '#2a3040'}`, padding: '5px 12px', borderRadius: 6, fontSize: 12, fontWeight: year === y ? 700 : 400, cursor: 'pointer' }}>
+                        {y}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, marginBottom: 8, letterSpacing: 1 }}>ΜΗΝΑΣ</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4, marginBottom: 8 }}>
+                    <button onClick={() => { setMonth(0); setShowPeriodPicker(false) }}
+                      style={{ background: month === 0 ? 'linear-gradient(135deg,#4f8ef7,#7c5cf7)' : '#0a0c13', color: month === 0 ? '#fff' : '#9ca3af', border: `1px solid ${month === 0 ? 'transparent' : '#2a3040'}`, padding: '5px', borderRadius: 6, fontSize: 11, cursor: 'pointer', gridColumn: 'span 4' }}>
+                      Όλο το έτος
+                    </button>
+                    {months.map((m, i) => (
+                      <button key={i} onClick={() => { setMonth(i + 1); setShowPeriodPicker(false) }}
+                        style={{ background: month === i+1 ? 'linear-gradient(135deg,#4f8ef7,#7c5cf7)' : '#0a0c13', color: month === i+1 ? '#fff' : '#9ca3af', border: `1px solid ${month === i+1 ? 'transparent' : '#2a3040'}`, padding: '5px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
             {[['ΕΣΟΔΑ', totalIncome, '#4ade80', '#0a2215'], ['ΕΞΟΔΑ', totalExpense, '#f87171', '#2a0f0f'], ['ΥΠΟΛΟΙΠΟ', balance, balance >= 0 ? '#60b4f7' : '#f87171', balance >= 0 ? '#0a1e2e' : '#2a0f0f']].map(([l, v, c, bg]) => (
               <div key={l} style={{ textAlign: 'center', padding: '4px 12px', borderRadius: 7, background: bg, border: `1px solid ${c}22` }}>
@@ -608,12 +648,12 @@ export default function App() {
         {/* ══════════════════════════════════════
             TAB 3: ΠΛΗΡΩΜΕΣ
         ══════════════════════════════════════ */}
-        {tab === 3 && <PaymentsTab payments={yearPayments} invoices={invoices} loadPayments={loadPayments} fmt={fmt} fmtDate={fmtDate} notify={notify} year={year} />}
+        {tab === 3 && <PaymentsTab payments={yearPayments} invoices={invoices} loadPayments={loadPayments} fmt={fmt} fmtDate={fmtDate} notify={notify} year={year} month={month} monthsFull={monthsFull} />}
 
         {/* ══════════════════════════════════════
             TAB 4: ΚΑΡΤΕΛΕΣ
         ══════════════════════════════════════ */}
-        {tab === 4 && <KartelesTab invoices={[...income, ...expenses]} payments={yearPayments} byCounterparty={(t) => byCounterparty(t, yearPayments, [...income, ...expenses])} fmt={fmt} fmtDate={fmtDate} year={year} />}
+        {tab === 4 && <KartelesTab invoices={[...income, ...expenses]} payments={yearPayments} byCounterparty={(t) => byCounterparty(t, yearPayments, [...income, ...expenses])} fmt={fmt} fmtDate={fmtDate} year={year} month={month} monthsFull={monthsFull} />}
 
         {/* ══════════════════════════════════════
             TAB 4: ΥΠΟΛΟΙΠΑ
@@ -939,7 +979,7 @@ function InvoiceDetail({ inv, color, fmt, fmtDate }) {
 /* ═══════════════════════════════════════
    ΚΑΡΤΕΛΕΣ
 ═══════════════════════════════════════ */
-function KartelesTab({ invoices, payments, byCounterparty, fmt, fmtDate, year }) {
+function KartelesTab({ invoices, payments, byCounterparty, fmt, fmtDate, year, month, monthsFull }) {
   const [cpType, setCpType] = useState('income')
   const [selCP, setSelCP] = useState(null)
   const [searchKartela, setSearchKartela] = useState('')
@@ -1032,7 +1072,7 @@ function KartelesTab({ invoices, payments, byCounterparty, fmt, fmtDate, year })
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(230px, 290px) 1fr', gap: 20 }}>
       {/* Αριστερή στήλη */}
       <div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: '#4f8ef7', marginBottom: 10, textAlign: 'center', background: '#0a0c13', border: '1px solid #1e2232', borderRadius: 7, padding: '6px' }}>Χρήση {year}</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: '#4f8ef7', marginBottom: 10, textAlign: 'center', background: '#0a0c13', border: '1px solid #1e2232', borderRadius: 7, padding: '6px' }}>{month === 0 ? `Χρήση ${year}` : `${monthsFull[month-1]} ${year}`}</div>
         <div style={{ marginBottom: 10 }}>
           <input placeholder="Αναζήτηση..." value={searchKartela}
             onChange={e => { setSearchKartela(e.target.value); setSelCP(null) }}
@@ -1255,7 +1295,7 @@ function TraderSearch({ value, onChange, onSelect, type = 'all', placeholder = '
 /* ═══════════════════════════════════════════════════════════
    ΠΛΗΡΩΜΕΣ & ΕΙΣΠΡΑΞΕΙΣ
 ═══════════════════════════════════════════════════════════ */
-function PaymentsTab({ payments, invoices, loadPayments, fmt, fmtDate, notify, year }) {
+function PaymentsTab({ payments, invoices, loadPayments, fmt, fmtDate, notify, year, month, monthsFull }) {
   const [showForm, setShowForm] = useState(false)
   const [scanning, setScanning] = useState(false)
   const [form, setForm] = useState({ type: 'payment', date: new Date().toISOString().split('T')[0], amount: '', counterparty: '', afm: '', payment_method: 'Μετρητά', bank: '', reference: '', notes: '' })
@@ -1317,7 +1357,10 @@ function PaymentsTab({ payments, invoices, loadPayments, fmt, fmtDate, notify, y
   }
 
   const filtered = filterType === 'all' ? payments : payments.filter(p => p.type === filterType)
-  const yearPayments = payments.filter(p => new Date(p.date).getFullYear() === year)
+  const yearPayments = payments.filter(p => {
+    const d = new Date(p.date)
+    return d.getFullYear() === year && (month === 0 || d.getMonth() + 1 === month)
+  })
   const totalReceipts = yearPayments.filter(p => p.type === 'receipt').reduce((s, p) => s + (p.amount || 0), 0)
   const totalPayments = payments.filter(p => p.type === 'payment').reduce((s, p) => s + (p.amount || 0), 0)
 
@@ -1325,7 +1368,7 @@ function PaymentsTab({ payments, invoices, loadPayments, fmt, fmtDate, notify, y
     <div>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
-        <h2 style={{ fontSize: 19, fontWeight: 700 }}>Πληρωμές & Εισπράξεις {year}</h2>
+        <h2 style={{ fontSize: 19, fontWeight: 700 }}>Πληρωμές & Εισπράξεις — {month === 0 ? year : `${monthsFull[month-1]} ${year}`}</h2>
         <div style={{ display: 'flex', gap: 8 }}>
           <div style={{ background: '#0a2215', border: '1px solid #4ade8033', borderRadius: 7, padding: '4px 12px', textAlign: 'center' }}>
             <div style={{ fontSize: 9, color: '#4ade80', fontWeight: 700 }}>ΕΙΣΠΡΑΞΕΙΣ</div>
