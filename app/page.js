@@ -47,7 +47,7 @@ export default function App() {
   const [saving, setSaving] = useState(false)
   const [expandedId, setExpandedId] = useState(null)
   const [payments, setPayments] = useState([])
-  const [expenses, setExpenses] = useState([])
+  const [generalExpenses, setGeneralExpenses] = useState([])
   const [year, setYear] = useState(new Date().getFullYear())
   const [month, setMonth] = useState(0) // 0 = όλοι οι μήνες
   const [showPeriodPicker, setShowPeriodPicker] = useState(false)
@@ -84,7 +84,7 @@ export default function App() {
 
   const loadExpenses = async () => {
     const { data, error } = await supabase.from('expenses').select('*').order('date', { ascending: false })
-    if (!error) setExpenses(data || [])
+    if (!error) setGeneralExpenses(data || [])
   }
 
   const handleLogin = async () => {
@@ -729,7 +729,7 @@ export default function App() {
         {/* ══════════════════════════════════════
             TAB 4: ΓΕΝΙΚΑ ΕΞΟΔΑ
         ══════════════════════════════════════ */}
-        {tab === 4 && <GeneralExpensesTab expenses={expenses.filter(e => {
+        {tab === 4 && <GeneralExpensesTab expenses={generalExpenses.filter(e => {
           const d = new Date(e.date)
           return d.getFullYear() === year && (month === 0 || d.getMonth() + 1 === month)
         })} loadExpenses={loadExpenses} fmt={fmt} fmtDate={fmtDate} notify={notify} year={year} month={month} monthsFull={monthsFull} />}
