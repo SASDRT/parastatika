@@ -780,65 +780,6 @@ export default function App() {
         )}
       </div>
 
-      {/* Αναλυτική προβολή */}
-      {selected && (
-        <div style={{ background: '#13151f', border: `1px solid ${activeColor}44`, borderRadius: 12, padding: 20, marginTop: 14 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-            <div>
-              <h3 style={{ fontSize: 16, fontWeight: 700, color: activeColor }}>{selected.name}</h3>
-              {selected.afm && <div style={{ fontSize: 12, color: '#5a6070', marginTop: 2 }}>ΑΦΜ: {selected.afm}</div>}
-            </div>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 10, color: '#5a6070' }}>ΣΥΝΟΛΟ</div>
-                <div style={{ fontFamily: 'monospace', fontSize: 20, fontWeight: 700, color: activeColor }}>{fmt(selected.total)}</div>
-              </div>
-              <button onClick={() => setSelected(null)} style={{ background: 'transparent', color: '#5a6070', border: '1px solid #2a3040', padding: '6px 12px', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>Κλείσιμο</button>
-            </div>
-          </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
-              <thead>
-                <tr>
-                  {['ΗΜΕΡΟΜΗΝΙΑ', 'ΕΙΔΟΣ', 'ΑΡΙΘΜΟΣ', 'ΚΑΘΑΡΗ', 'ΦΠΑ', 'ΣΥΝΟΛΟ'].map(h => (
-                    <th key={h} style={{ textAlign: ['ΚΑΘΑΡΗ','ΦΠΑ','ΣΥΝΟΛΟ'].includes(h)?'right':'left', fontSize: 10, fontWeight: 700, color: '#5a6070', padding: '8px 12px', borderBottom: '1px solid #1e2232' }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(activeReport === 'customers'
-                  ? income.filter(inv => (inv.afm || inv.counterparty) === (selected.afm || selected.name))
-                  : activeReport === 'suppliers'
-                  ? expenses.filter(inv => (inv.issuer_afm || inv.issuer_name || inv.counterparty) === (selected.afm || selected.name))
-                  : generalExpenses.filter(e => e.category === selected.name)
-                ).map((inv, i) => (
-                  <tr key={i} onMouseEnter={e => e.currentTarget.style.background='#1a1d2b'} onMouseLeave={e => e.currentTarget.style.background=''}>
-                    <td style={{ padding: '9px 12px', borderBottom: '1px solid #161824', fontSize: 12, color: '#9ca3af', fontFamily: 'monospace' }}>{fmtDate(inv.date)}</td>
-                    <td style={{ padding: '9px 12px', borderBottom: '1px solid #161824', fontSize: 11, color: '#4f8ef7', fontWeight: 600 }}>
-                      {activeReport === 'general' ? inv.category : (inv.invoice_type || '—')}
-                    </td>
-                    <td style={{ padding: '9px 12px', borderBottom: '1px solid #161824', fontSize: 12, fontFamily: 'monospace', color: '#7c5cf7' }}>
-                      {activeReport === 'general' ? (inv.vendor || '—') : (inv.series||'')+(inv.number||'—')}
-                    </td>
-                    <td style={{ padding: '9px 12px', borderBottom: '1px solid #161824', fontSize: 12, textAlign: 'right', fontFamily: 'monospace' }}>
-                      {fmt(activeReport === 'general' ? (inv.amount - (inv.vat||0)) : inv.subtotal)}
-                    </td>
-                    <td style={{ padding: '9px 12px', borderBottom: '1px solid #161824', fontSize: 12, textAlign: 'right', fontFamily: 'monospace', color: '#5a6070' }}>
-                      {fmt(activeReport === 'general' ? (inv.vat||0) : inv.vat)}
-                    </td>
-                    <td style={{ padding: '9px 12px', borderBottom: '1px solid #161824', fontSize: 13, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: activeColor }}>
-                      {fmt(activeReport === 'general' ? inv.amount : inv.total)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
 
 /* ═══════════════════════════════════════════════════════════
    ΑΝΑΛΥΤΙΚΗ ΠΡΟΒΟΛΗ ΤΙΜΟΛΟΓΙΟΥ
