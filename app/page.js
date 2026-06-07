@@ -192,7 +192,6 @@ export default function App() {
         esc(p.payment_method), esc(p.reference), esc(p.notes)
       ].join(','))
       const payCsv = [payHeaders.join(","), ...payRows].join("\n")
-')
 
       // Expenses CSV
       const expHeaders = ['Ημερομηνία','Κατηγορία','Περιγραφή','Προμηθευτής','Ποσό','ΦΠΑ','Τρόπος','Αρ. Απόδειξης']
@@ -201,7 +200,6 @@ export default function App() {
         fmtN(e.amount), fmtN(e.vat), esc(e.payment_method), esc(e.receipt_ref)
       ].join(','))
       const expCsv = [expHeaders.join(","), ...expRows].join("\n")
-')
 
       // Download all 3 files
       const today = new Date().toISOString().split('T')[0]
