@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 
 const fmt = (n) => new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' }).format(n || 0)
 const fmtDate = (d) => { if (!d) return '—'; try { return new Date(d).toLocaleDateString('el-GR') } catch { return d } }
-const TABS = ['📸 Σάρωση', '📈 Έσοδα', '📉 Έξοδα', '💳 Πληρωμές', '📋 Καρτέλες', '💰 Υπόλοιπα']
+const TABS = ['Σάρωση', 'Έσοδα', 'Έξοδα', 'Πληρωμές', 'Καρτέλες', 'Υπόλοιπα']
 
 const C = {
   app: { minHeight: '100vh', background: '#0a0c13', color: '#e8eaf0', fontFamily: 'system-ui,-apple-system,sans-serif' },
@@ -235,7 +235,7 @@ export default function App() {
       <div style={C.header}>
         <div style={C.headerInner}>
           <div style={C.logo}>
-            <div style={C.logoIcon}>📋</div>
+            <div style={C.logoIcon}>P</div>
             <span>Παραστατικά</span>
           </div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -287,11 +287,11 @@ export default function App() {
                   </div>
                   <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
                     <label style={{ ...C.btnPrimary, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '13px 22px', fontSize: 14, borderRadius: 9 }}>
-                      📷 Κάμερα
+                      Κάμερα
                       <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => handleFile(e.target.files[0])} />
                     </label>
                     <label style={{ ...C.btnGhost, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '13px 22px', fontSize: 14, borderRadius: 9 }}>
-                      🖼️ Από συλλογή
+                      Από συλλογή
                       <input type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => handleFile(e.target.files[0])} />
                     </label>
                   </div>
@@ -504,8 +504,8 @@ export default function App() {
         ══════════════════════════════════════ */}
         {tab === 5 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 22 }}>
-            {[{ type: 'income', label: '📈 Πελάτες — Εισπρακτέα', color: '#4ade80', total: totalIncome },
-              { type: 'expense', label: '📉 Προμηθευτές — Πληρωτέα', color: '#f87171', total: totalExpense }].map(({ type, label, color, total }) => (
+            {[{ type: 'income', label: 'Πελάτες — Εισπρακτέα', color: '#4ade80', total: totalIncome },
+              { type: 'expense', label: 'Προμηθευτές — Πληρωτέα', color: '#f87171', total: totalExpense }].map(({ type, label, color, total }) => (
               <div key={type}>
                 <h3 style={{ fontWeight: 700, marginBottom: 14, color, fontSize: 15 }}>{label}</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -693,7 +693,7 @@ function InvoiceDetail({ inv, color, fmt, fmtDate }) {
           {inv.time && <InfoChip icon="🕐" text={inv.time} />}
         </div>
         <button onClick={printInvoice} style={{ ...C.btnIcon, display: 'flex', alignItems: 'center', gap: 6 }}>
-          🖨️ Εκτύπωση / PDF
+          Εκτύπωση / PDF
         </button>
       </div>
 
@@ -896,7 +896,7 @@ function KartelesTab({ invoices, payments, byCounterparty, fmt, fmtDate }) {
         const dr = cpType === 'income'
           ? `<td class="r red">${debit>0?debit.toFixed(2)+'€':'—'}</td><td class="r grn">${credit>0?credit.toFixed(2)+'€':'—'}</td>`
           : `<td class="r red">${debit>0?debit.toFixed(2)+'€':'—'}</td><td class="r grn">${credit>0?credit.toFixed(2)+'€':'—'}</td>`
-        const kind = isInv ? (mov.invoice_type||'Τιμολόγιο') : (mov.type==='receipt'?'💚 Είσπραξη':'🔴 Πληρωμή')
+        const kind = isInv ? (mov.invoice_type||'Τιμολόγιο') : (mov.type==='receipt'?'Είσπραξη':'Πληρωμή')
         const ref = isInv ? ((mov.series||'')+(mov.number||'—')) : (mov.reference||'—')
         const method = mov.payment_method || '—'
         return `<tr><td>${fmtDate(mov._date)}</td><td>${kind}</td><td>${ref}</td><td>${method}</td>${dr}<td class="r bold">${Math.abs(running).toFixed(2)}€${running>0?' ✗':running<0?' ✓':' ='}</td></tr>`
@@ -922,7 +922,7 @@ function KartelesTab({ invoices, payments, byCounterparty, fmt, fmtDate }) {
             style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '8px 12px', fontSize: 12, width: '100%', outline: 'none', fontFamily: 'inherit' }} />
         </div>
         <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
-          {[['income', '📈 Πελάτες', '#4ade80', '#0a2215'], ['expense', '📉 Προμηθευτές', '#f87171', '#2a0f0f']].map(([type, label, c, bg]) => (
+          {[['income', 'Πελάτες', '#4ade80', '#0a2215'], ['expense', 'Προμηθευτές', '#f87171', '#2a0f0f']].map(([type, label, c, bg]) => (
             <button key={type} onClick={() => { setCpType(type); setSelCP(null); setSearchKartela('') }}
               style={{ flex: 1, padding: '8px', borderRadius: 6, border: `1px solid ${cpType === type ? c + '44' : '#2a3040'}`, background: cpType === type ? bg : 'transparent', color: cpType === type ? c : '#5a6070', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
               {label}
@@ -973,7 +973,7 @@ function KartelesTab({ invoices, payments, byCounterparty, fmt, fmtDate }) {
                   <div style={{ fontSize: 10, color: '#5a6070' }}>{selected.invoices.length} παραστατικά</div>
                 </div>
                 <button onClick={printKartela} style={{ background: '#1e2232', color: '#e8eaf0', border: 'none', padding: '8px 14px', borderRadius: 7, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                  🖨️ PDF
+                  PDF
                 </button>
               </div>
             </div>
@@ -1019,7 +1019,7 @@ function KartelesTab({ invoices, payments, byCounterparty, fmt, fmtDate }) {
                         <td style={{ padding:'10px 12px', borderBottom:'1px solid #161824', fontSize:12 }}>
                           {isInvoice
                             ? <span style={{ color:'#4f8ef7', fontWeight:600 }}>{mov.invoice_type || 'Τιμολόγιο'}</span>
-                            : <span style={{ background: mov.type==='receipt'?'#0a2215':'#2a0f0f', color: mov.type==='receipt'?'#4ade80':'#f87171', padding:'2px 8px', borderRadius:4, fontSize:11, fontWeight:600 }}>{mov.type==='receipt'?'💚 Είσπραξη':'🔴 Πληρωμή'}</span>
+                            : <span style={{ background: mov.type==='receipt'?'#0a2215':'#2a0f0f', color: mov.type==='receipt'?'#4ade80':'#f87171', padding:'2px 8px', borderRadius:4, fontSize:11, fontWeight:600 }}>{mov.type==='receipt'?'Είσπραξη':'Πληρωμή'}</span>
                           }
                         </td>
                         <td style={{ padding:'10px 12px', borderBottom:'1px solid #161824', fontSize:12, fontFamily:'monospace', color:'#7c5cf7' }}>{isInvoice ? (mov.series||'')+(mov.number||'—') : (mov.reference||'—')}</td>
@@ -1225,7 +1225,7 @@ function PaymentsTab({ payments, invoices, loadPayments, fmt, fmtDate, notify })
         </div>
         <label style={{ background: '#1e2232', color: '#e8eaf0', border: '1px solid #2a3040', padding: '9px 14px', borderRadius: 8, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}
           title="Import πελατών/προμηθευτών από Emblem JSON">
-          📥 Import Emblem
+          Import Emblem
           <input type="file" accept=".json" style={{ display: 'none' }} onChange={async e => {
             const file = e.target.files[0]; if (!file) return
             try {
@@ -1322,7 +1322,7 @@ function PaymentsTab({ payments, invoices, loadPayments, fmt, fmtDate, notify })
               {saving ? '⏳...' : '✓ Αποθήκευση'}
             </button>
             <label style={{ background: '#1e2232', color: '#e8eaf0', border: 'none', padding: '10px 16px', borderRadius: 8, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-              {scanning ? '🔍 Ανάγνωση...' : '📷 Σάρωση απόδειξης'}
+              {scanning ? 'Ανάγνωση...' : 'Σάρωση απόδειξης'}
               <input type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => handleFile(e.target.files[0])} disabled={scanning} />
             </label>
             <button onClick={() => setShowForm(false)} style={{ background: 'transparent', color: '#5a6070', border: '1px solid #2a3040', padding: '10px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>Ακύρωση</button>
@@ -1353,7 +1353,7 @@ function PaymentsTab({ payments, invoices, loadPayments, fmt, fmtDate, notify })
                     <td style={{ padding: '11px 12px', borderBottom: '1px solid #161824', fontSize: 12, color: '#9ca3af', fontFamily: 'monospace' }}>{fmtDate(p.date)}</td>
                     <td style={{ padding: '11px 12px', borderBottom: '1px solid #161824', fontSize: 12 }}>
                       <span style={{ background: p.type === 'receipt' ? '#0a2215' : '#2a0f0f', color: p.type === 'receipt' ? '#4ade80' : '#f87171', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600 }}>
-                        {p.type === 'receipt' ? '💚 Είσπραξη' : '🔴 Πληρωμή'}
+                        {p.type === 'receipt' ? 'Είσπραξη' : 'Πληρωμή'}
                       </span>
                     </td>
                     <td style={{ padding: '11px 12px', borderBottom: '1px solid #161824', fontSize: 13, fontWeight: 500 }}>{p.counterparty || '—'}</td>
