@@ -782,31 +782,11 @@ function InvoiceDetail({ inv, color, fmt, fmtDate }) {
    ΚΑΡΤΕΛΕΣ
 ═══════════════════════════════════════ */
 function KartelesTab({ invoices, byCounterparty, fmt, fmtDate }) {
-  const printKartela = (cp, type, fmt, fmtDate) => {
-    const color = type === "income" ? "#1a6e3a" : "#8b1a1a"
-    const title = type === "income" ? "ΚΑΡΤΕΛΑ ΠΕΛΑΤΗ" : "ΚΑΡΤΕΛΑ ΠΡΟΜΗΘΕΥΤΗ"
-    const totalDebit = type === "income" ? cp.invoices.reduce((s,i) => s+(i.total||0), 0) : 0
-    const totalCredit = type === "expense" ? cp.invoices.reduce((s,i) => s+(i.total||0), 0) : 0
-    const win = window.open("","_blank")
-    win.document.write(`<!DOCTYPE html><html><head><title>${title}</title><meta charset="utf-8"><style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;padding:25px;font-size:12px;color:#000}.header{text-align:center;margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid #000}.title{font-size:20px;font-weight:bold;color:${color}}.sub{font-size:14px;margin-top:4px}.info{margin-bottom:16px;background:#f5f5f5;padding:12px;border-radius:4px;border:1px solid #ddd}table{width:100%;border-collapse:collapse;margin-bottom:16px}th{background:#333;color:#fff;padding:7px 10px;text-align:left;font-size:11px}td{padding:7px 10px;border-bottom:1px solid #eee}tr:nth-child(even) td{background:#f9f9f9}.debit{color:#c00;font-weight:bold}.credit{color:#080;font-weight:bold}.balance{font-weight:bold}.totals{display:flex;justify-content:flex-end;margin-top:8px}.tbox{border:2px solid #333;border-radius:4px;overflow:hidden;min-width:280px}.trow{display:flex;justify-content:space-between;padding:6px 12px;font-size:13px}.trow:nth-child(even){background:#f5f5f5}.grand{background:#333!important;color:#fff;font-weight:bold;font-size:15px}@media print{@page{margin:12mm}}</style></head><body>
-    <div class="header"><div class="title">${title}</div><div class="sub">${cp.name}${cp.trade_name ? " &quot;" + cp.trade_name + "&quot;" : ""}</div></div>
-    <div class="info"><strong>ΑΦΜ:</strong> ${cp.afm||"—"} &nbsp; <strong>ΔΟΥ:</strong> ${cp.doy||"—"} &nbsp; <strong>Παραστατικά:</strong> ${cp.invoices.length} &nbsp; <strong>Ημερομηνία εκτύπωσης:</strong> ${new Date().toLocaleDateString("el-GR")}</div>
-    <table><thead><tr><th>ΗΜΕΡΟΜΗΝΙΑ</th><th>ΕΙΔΟΣ</th><th>ΑΡΙΘΜΟΣ</th><th>ΠΕΡΙΓΡΑΦΗ</th><th style="text-align:right">ΧΡΕΩΣΗ</th><th style="text-align:right">ΠΙΣΤΩΣΗ</th><th style="text-align:right">ΥΠΟΛΟΙΠΟ</th></tr></thead><tbody>
-    ${cp.invoices.reduce((acc, inv, idx) => {
-      const running = cp.invoices.slice(0, idx+1).reduce((s,i) => s+(i.total||0), 0)
-      const debit = type === "income" ? (inv.total||0).toFixed(2)+"€" : "—"
-      const credit = type === "expense" ? (inv.total||0).toFixed(2)+"€" : "—"
-      return acc + "<tr><td>" + fmtDate(inv.date) + "</td><td>" + (inv.invoice_type||"—") + "</td><td>" + (inv.series||"") + (inv.number||"—") + "</td><td>" + (inv.notes||"") + "</td><td style=\"text-align:right\" class=\"debit\">" + debit + "</td><td style=\"text-align:right\" class=\"credit\">" + credit + "</td><td style=\"text-align:right\" class=\"balance\">" + running.toFixed(2) + "€</td></tr>"
-    }, "")}
-    </tbody></table>
-    <div class="totals"><div class="tbox"><div class="trow"><span>Σύνολο χρεώσεων:</span><span class="debit">${totalDebit.toFixed(2)}€</span></div><div class="trow"><span>Σύνολο πιστώσεων:</span><span class="credit">${totalCredit.toFixed(2)}€</span></div><div class="trow grand"><span>ΥΠΟΛΟΙΠΟ:</span><span>${cp.invoices.reduce((s,i) => s+(i.total||0),0).toFixed(2)}€</span></div></div></div>
-    <script>window.onload=()=>window.print()</script></body></html>`)
-    win.document.close()
-  }
   const [cpType, setCpType] = useState('income')
-  const [searchKartela, setSearchKartela] = useState("")
-  const [expandedInvId, setExpandedInvId] = useState(null)
   const [selCP, setSelCP] = useState(null)
+  const [searchKartela, setSearchKartela] = useState('')
+  const [expandedInvId, setExpandedInvId] = useState(null)
+
   const allList = byCounterparty(cpType)
   const list = searchKartela ? allList.filter(cp => {
     const q = searchKartela.toLowerCase()
@@ -815,44 +795,92 @@ function KartelesTab({ invoices, byCounterparty, fmt, fmtDate }) {
       (it.description || '').toLowerCase().includes(q) || (it.code || '').toLowerCase().includes(q)
     ))
     const invMatch = cp.invoices.some(inv =>
-      (inv.number || '').toLowerCase().includes(q) || (inv.invoice_type || '').toLowerCase().includes(q) ||
-      (inv.issuer_name || '').toLowerCase().includes(q) || (inv.issuer_trade_name || '').toLowerCase().includes(q)
+      (inv.number || '').toLowerCase().includes(q) ||
+      (inv.series || '').toLowerCase().includes(q) ||
+      (inv.invoice_type || '').toLowerCase().includes(q) ||
+      (inv.issuer_name || '').toLowerCase().includes(q) ||
+      (inv.issuer_trade_name || '').toLowerCase().includes(q)
     )
     return nameMatch || itemMatch || invMatch
   }) : allList
   const selected = list.find(c => c.name === selCP)
+  const color = cpType === 'income' ? '#4ade80' : '#f87171'
+
+  const printKartela = () => {
+    const title = cpType === 'income' ? 'ΚΑΡΤΕΛΑ ΠΕΛΑΤΗ' : 'ΚΑΡΤΕΛΑ ΠΡΟΜΗΘΕΥΤΗ'
+    const win = window.open('', '_blank')
+    let running = 0
+    win.document.write(`<!DOCTYPE html><html><head><title>${title}</title><meta charset="utf-8">
+    <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;padding:25px;font-size:12px}
+    .hdr{text-align:center;margin-bottom:20px;padding-bottom:12px;border-bottom:2px solid #000}
+    .title{font-size:20px;font-weight:bold;color:${cpType === 'income' ? '#1a6e3a' : '#8b1a1a'}}
+    .info{margin-bottom:16px;background:#f5f5f5;padding:10px;border:1px solid #ddd;border-radius:4px}
+    table{width:100%;border-collapse:collapse;margin-bottom:16px}
+    th{background:#333;color:#fff;padding:7px 8px;text-align:left;font-size:11px}
+    th.r{text-align:right}td{padding:7px 8px;border-bottom:1px solid #eee}
+    td.r{text-align:right}tr:nth-child(even) td{background:#f9f9f9}
+    .red{color:#c00;font-weight:bold}.grn{color:#080;font-weight:bold}.bold{font-weight:bold}
+    .tot{display:flex;justify-content:flex-end}.tbox{border:2px solid #333;border-radius:4px;min-width:260px}
+    .tr{display:flex;justify-content:space-between;padding:6px 12px;font-size:13px}
+    .tr:nth-child(even){background:#f5f5f5}.grand{background:#333!important;color:#fff;font-weight:bold;font-size:15px}
+    @media print{@page{margin:12mm}}</style></head><body>
+    <div class="hdr"><div class="title">${title}</div>
+    <div style="font-size:14px;margin-top:4px">${selected.name}${selected.trade_name ? ' &quot;' + selected.trade_name + '&quot;' : ''}</div></div>
+    <div class="info"><strong>ΑΦΜ:</strong> ${selected.afm||'—'} &nbsp; <strong>ΔΟΥ:</strong> ${selected.doy||'—'} &nbsp;
+    <strong>Παραστατικά:</strong> ${selected.invoices.length} &nbsp;
+    <strong>Εκτύπωση:</strong> ${new Date().toLocaleDateString('el-GR')}</div>
+    <table><thead><tr>
+    <th>ΗΜΕΡΟΜΗΝΙΑ</th><th>ΕΙΔΟΣ</th><th>ΑΡΙΘΜΟΣ</th><th>ΤΡΟΠΟΣ ΠΛΗΡ.</th>
+    <th class="r">ΧΡΕΩΣΗ</th><th class="r">ΠΙΣΤΩΣΗ</th><th class="r">ΥΠΟΛΟΙΠΟ</th>
+    </tr></thead><tbody>
+    ${selected.invoices.map(inv => {
+      running += (inv.total || 0)
+      const debit = cpType === 'income' ? `<td class="r red">${(inv.total||0).toFixed(2)}€</td><td class="r">—</td>` : `<td class="r">—</td><td class="r grn">${(inv.total||0).toFixed(2)}€</td>`
+      return `<tr><td>${fmtDate(inv.date)}</td><td>${inv.invoice_type||'—'}</td><td>${(inv.series||'')}${inv.number||'—'}</td><td>${inv.payment_method||'—'}</td>${debit}<td class="r bold">${running.toFixed(2)}€</td></tr>`
+    }).join('')}
+    </tbody></table>
+    <div class="tot"><div class="tbox">
+    <div class="tr"><span>Σύνολο:</span><span class="${cpType === 'income' ? 'red' : 'grn'}">${selected.total.toFixed(2)}€</span></div>
+    <div class="tr grand"><span>ΥΠΟΛΟΙΠΟ:</span><span>${selected.total.toFixed(2)}€</span></div>
+    </div></div>
+    <script>window.onload=()=>window.print()</script></body></html>`)
+    win.document.close()
+  }
 
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(230px, 290px) 1fr', gap: 20 }}>
+      {/* Αριστερή στήλη */}
       <div>
         <div style={{ marginBottom: 10 }}>
-          <input placeholder="🔍 Αναζήτηση..." value={searchKartela} onChange={e => { setSearchKartela(e.target.value); setSelCP(null) }}
+          <input placeholder="🔍 Αναζήτηση..." value={searchKartela}
+            onChange={e => { setSearchKartela(e.target.value); setSelCP(null) }}
             style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '8px 12px', fontSize: 12, width: '100%', outline: 'none', fontFamily: 'inherit' }} />
         </div>
-        <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
-          {[['income', '📈 Πελάτες', '#4ade80', '#0a2215'], ['expense', '📉 Προμηθευτές', '#f87171', '#2a0f0f']].map(([type, label, color, bg]) => (
-            <button key={type} onClick={() => { setCpType(type); setSelCP(null) }}
-              style={{ flex: 1, padding: '9px', borderRadius: 7, border: `1px solid ${cpType === type ? color + '44' : '#2a3040'}`, background: cpType === type ? bg : 'transparent', color: cpType === type ? color : '#5a6070', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
+        <div style={{ display: 'flex', gap: 6, marginBottom: 10 }}>
+          {[['income', '📈 Πελάτες', '#4ade80', '#0a2215'], ['expense', '📉 Προμηθευτές', '#f87171', '#2a0f0f']].map(([type, label, c, bg]) => (
+            <button key={type} onClick={() => { setCpType(type); setSelCP(null); setSearchKartela('') }}
+              style={{ flex: 1, padding: '8px', borderRadius: 6, border: `1px solid ${cpType === type ? c + '44' : '#2a3040'}`, background: cpType === type ? bg : 'transparent', color: cpType === type ? c : '#5a6070', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
               {label}
             </button>
           ))}
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-          {list.length === 0 && <div style={{ color: '#5a6070', fontSize: 13, textAlign: 'center', padding: 28 }}>Δεν υπάρχουν ακόμα</div>}
+          {list.length === 0 && <div style={{ color: '#5a6070', fontSize: 12, textAlign: 'center', padding: 20 }}>Δεν βρέθηκαν</div>}
           {list.map(cp => (
             <div key={cp.name} onClick={() => setSelCP(cp.name)}
-              style={{ padding: '11px 14px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${selCP === cp.name ? (cpType === 'income' ? '#4ade80' : '#f87171') + '66' : '#2a3040'}`, background: selCP === cp.name ? (cpType === 'income' ? '#0a2215' : '#2a0f0f') : '#0f1117', transition: 'all .15s' }}>
+              style={{ padding: '11px 14px', borderRadius: 8, cursor: 'pointer', border: `1px solid ${selCP === cp.name ? color + '66' : '#2a3040'}`, background: selCP === cp.name ? (cpType === 'income' ? '#0a2215' : '#2a0f0f') : '#0f1117' }}>
               <div style={{ fontWeight: 700, fontSize: 13 }}>{cp.name}</div>
-              {cp.trade_name && <div style={{ fontSize: 10, color: '#4f8ef7', marginTop: 1 }}>"{cp.trade_name}"</div>}
+              {cp.trade_name && <div style={{ fontSize: 10, color: '#4f8ef7' }}>"{cp.trade_name}"</div>}
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
-                <span style={{ fontSize: 10, color: '#5a6070' }}>{cp.invoices.length} παραστατικά{cp.afm ? ` · ${cp.afm}` : ''}</span>
-                <span style={{ fontFamily: 'monospace', fontSize: 12, color: cpType === 'income' ? '#4ade80' : '#f87171', fontWeight: 700 }}>{fmt(cp.total)}</span>
+                <span style={{ fontSize: 10, color: '#5a6070' }}>{cp.invoices.length} παραστ.{cp.afm ? ` · ${cp.afm}` : ''}</span>
+                <span style={{ fontFamily: 'monospace', fontSize: 12, color, fontWeight: 700 }}>{fmt(cp.total)}</span>
               </div>
             </div>
           ))}
         </div>
       </div>
 
+      {/* Δεξιά στήλη - Καρτέλα */}
       <div>
         {!selected ? (
           <div style={{ background: '#13151f', border: '1px solid #1e2232', borderRadius: 12, padding: 56, textAlign: 'center', color: '#5a6070' }}>
@@ -861,36 +889,42 @@ function KartelesTab({ invoices, byCounterparty, fmt, fmtDate }) {
           </div>
         ) : (
           <div>
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
-              <button onClick={() => printKartela(selected, cpType, fmt, fmtDate)} style={{ background: "#1e2232", color: "#e8eaf0", border: "none", padding: "8px 16px", borderRadius: 7, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>🖨️ Εκτύπωση Καρτέλας / PDF</button>
-            </div>
-            <div style={{ background: '#13151f', border: '1px solid #1e2232', borderRadius: 12, padding: '16px 20px', marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            {/* Header καρτέλας */}
+            <div style={{ background: '#13151f', border: '1px solid #1e2232', borderRadius: 12, padding: '14px 18px', marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <h3 style={{ fontSize: 18, fontWeight: 700 }}>{selected.name}</h3>
+                <h3 style={{ fontSize: 17, fontWeight: 700 }}>{selected.name}</h3>
                 {selected.trade_name && <div style={{ fontSize: 12, color: '#4f8ef7', marginTop: 2 }}>"{selected.trade_name}"</div>}
-                <div style={{ fontSize: 12, color: '#5a6070', marginTop: 3 }}>
+                <div style={{ fontSize: 11, color: '#5a6070', marginTop: 2 }}>
                   {selected.afm && `ΑΦΜ: ${selected.afm}`}{selected.doy && ` · ΔΟΥ: ${selected.doy}`}
                 </div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 10, color: '#5a6070', marginBottom: 2 }}>ΣΥΝΟΛΟ ΣΥΝΑΛΛΑΓΩΝ</div>
-                <div style={{ fontFamily: 'monospace', fontSize: 24, fontWeight: 700, color: cpType === 'income' ? '#4ade80' : '#f87171' }}>{fmt(selected.total)}</div>
-                <div style={{ fontSize: 11, color: '#5a6070' }}>{selected.invoices.length} παραστατικά</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 9, color: '#5a6070', marginBottom: 2 }}>ΣΥΝΟΛΟ ΣΥΝΑΛΛΑΓΩΝ</div>
+                  <div style={{ fontFamily: 'monospace', fontSize: 22, fontWeight: 700, color }}>{fmt(selected.total)}</div>
+                  <div style={{ fontSize: 10, color: '#5a6070' }}>{selected.invoices.length} παραστατικά</div>
+                </div>
+                <button onClick={printKartela} style={{ background: '#1e2232', color: '#e8eaf0', border: 'none', padding: '8px 14px', borderRadius: 7, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  🖨️ PDF
+                </button>
               </div>
             </div>
+
+            {/* Πίνακας παραστατικών */}
             <div style={{ background: '#13151f', border: '1px solid #1e2232', borderRadius: 12, overflow: 'hidden' }}>
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 550 }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 600 }}>
                   <thead>
-                    <tr>{['ΗΜΕΡΟΜΗΝΙΑ', 'ΕΙΔΟΣ', 'ΑΡΙΘΜΟΣ', 'ΚΑΘΑΡΗ', 'ΦΠΑ', 'ΣΥΝΟΛΟ', 'ΠΛΗΡΩΜΗ', ''].map(h => (
-
-                    ))}</tr>
+                    <tr>
+                      {['ΗΜΕΡΟΜΗΝΙΑ', 'ΕΙΔΟΣ', 'ΑΡΙΘΜΟΣ', 'ΚΑΘΑΡΗ', 'ΦΠΑ', 'ΣΥΝΟΛΟ', 'ΠΛΗΡΩΜΗ', ''].map(h => (
+                        <th key={h} style={{ textAlign: h === 'ΚΑΘΑΡΗ' || h === 'ΦΠΑ' || h === 'ΣΥΝΟΛΟ' ? 'right' : 'left', fontSize: 10, fontWeight: 700, letterSpacing: 1, color: '#5a6070', padding: '9px 12px', borderBottom: '1px solid #1e2232' }}>{h}</th>
+                      ))}
+                    </tr>
                   </thead>
                   <tbody>
                     {selected.invoices.map(inv => (
                       <React.Fragment key={inv.id}>
-                        <tr
-                          onClick={() => setExpandedInvId(expandedInvId === inv.id ? null : inv.id)}
+                        <tr onClick={() => setExpandedInvId(expandedInvId === inv.id ? null : inv.id)}
                           style={{ cursor: 'pointer' }}
                           onMouseEnter={e => e.currentTarget.style.background = '#1a1d2b'}
                           onMouseLeave={e => e.currentTarget.style.background = ''}>
@@ -899,7 +933,7 @@ function KartelesTab({ invoices, byCounterparty, fmt, fmtDate }) {
                           <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 12, fontFamily: 'monospace', color: '#7c5cf7' }}>{inv.series || ''}{inv.number || '—'}</td>
                           <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 12, fontFamily: 'monospace', textAlign: 'right' }}>{fmt(inv.subtotal)}</td>
                           <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 12, fontFamily: 'monospace', textAlign: 'right', color: '#5a6070' }}>{fmt(inv.vat)}</td>
-                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 700, color: cpType === 'income' ? '#4ade80' : '#f87171' }}>{fmt(inv.total)}</td>
+                          <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 13, fontFamily: 'monospace', textAlign: 'right', fontWeight: 700, color }}>{fmt(inv.total)}</td>
                           <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 11, color: '#5a6070' }}>{inv.payment_method || '—'}</td>
                           <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 11, color: '#5a6070', textAlign: 'center' }}>{expandedInvId === inv.id ? '▲' : '▼'}</td>
                         </tr>
@@ -909,7 +943,7 @@ function KartelesTab({ invoices, byCounterparty, fmt, fmtDate }) {
                               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                                 <thead>
                                   <tr style={{ background: '#1a1d27' }}>
-                                    {['ΚΩΔΙΚΟΣ', 'ΠΕΡΙΓΡΑΦΗ', 'ΠΟΣ.', 'ΤΙΜΗ ΜΟΝ.', 'ΚΑΘΑΡΗ', 'ΦΠΑ%', 'ΣΥΝΟΛΟ'].map(h => (
+                                    {['ΚΩΔΙΚΟΣ', 'ΠΕΡΙΓΡΑΦΗ', 'ΠΟΣ.', 'ΤΙΜΗ', 'ΚΑΘΑΡΗ', 'ΦΠΑ%', 'ΣΥΝΟΛΟ'].map(h => (
                                       <th key={h} style={{ fontSize: 9, color: '#5a6070', padding: '6px 10px', fontWeight: 700, textAlign: h === 'ΚΩΔΙΚΟΣ' || h === 'ΠΕΡΙΓΡΑΦΗ' ? 'left' : 'right', borderBottom: '1px solid #1e2232' }}>{h}</th>
                                     ))}
                                   </tr>
@@ -917,13 +951,13 @@ function KartelesTab({ invoices, byCounterparty, fmt, fmtDate }) {
                                 <tbody>
                                   {inv.items.map((item, i) => (
                                     <tr key={i} style={{ borderBottom: '1px solid #161824' }}>
-                                      <td style={{ padding: '7px 10px', fontSize: 11, fontFamily: 'monospace', color: '#7c5cf7' }}>{item.code || '—'}</td>
-                                      <td style={{ padding: '7px 10px', fontSize: 11 }}>{item.description || '—'}</td>
-                                      <td style={{ padding: '7px 10px', fontSize: 11, textAlign: 'right', fontFamily: 'monospace' }}>{item.quantity || 1}</td>
-                                      <td style={{ padding: '7px 10px', fontSize: 11, textAlign: 'right', fontFamily: 'monospace' }}>{(item.unit_price || 0).toFixed(2)}€</td>
-                                      <td style={{ padding: '7px 10px', fontSize: 11, textAlign: 'right', fontFamily: 'monospace' }}>{(item.net_value || 0).toFixed(2)}€</td>
-                                      <td style={{ padding: '7px 10px', fontSize: 11, textAlign: 'right', color: '#5a6070' }}>{item.vat_rate || 24}%</td>
-                                      <td style={{ padding: '7px 10px', fontSize: 12, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: cpType === 'income' ? '#4ade80' : '#f87171' }}>{(item.total || 0).toFixed(2)}€</td>
+                                      <td style={{ padding: '6px 10px', fontSize: 11, fontFamily: 'monospace', color: '#7c5cf7' }}>{item.code || '—'}</td>
+                                      <td style={{ padding: '6px 10px', fontSize: 11 }}>{item.description || '—'}</td>
+                                      <td style={{ padding: '6px 10px', fontSize: 11, textAlign: 'right', fontFamily: 'monospace' }}>{item.quantity || 1}</td>
+                                      <td style={{ padding: '6px 10px', fontSize: 11, textAlign: 'right', fontFamily: 'monospace' }}>{(parseFloat(item.unit_price) || 0).toFixed(2)}€</td>
+                                      <td style={{ padding: '6px 10px', fontSize: 11, textAlign: 'right', fontFamily: 'monospace' }}>{(parseFloat(item.net_value) || 0).toFixed(2)}€</td>
+                                      <td style={{ padding: '6px 10px', fontSize: 11, textAlign: 'right', color: '#5a6070' }}>{item.vat_rate || 24}%</td>
+                                      <td style={{ padding: '6px 10px', fontSize: 12, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color }}>{(parseFloat(item.total) || 0).toFixed(2)}€</td>
                                     </tr>
                                   ))}
                                 </tbody>
