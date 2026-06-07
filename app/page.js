@@ -677,7 +677,11 @@ export default function App() {
                   <input placeholder="🔍 Αναζήτηση..." value={searchQ} onChange={e => setSearchQ(e.target.value)}
                     style={{ ...C.input, fontSize: 13 }} />
                 </div>
-                <button style={C.btnPrimary} onClick={() => setTab(0)}>+ Νέο</button>
+                <button style={C.btnPrimary} onClick={() => {
+                  setEditForm({ type: tab === 1 ? 'income' : 'expense', date: new Date().toISOString().split('T')[0], items: [] })
+                  setTab(0)
+                }}>+ Χειροκίνητη καταχώρηση</button>
+                <button style={C.btnGhost} onClick={() => { setEditForm(null); setPreviewImg(null); setTab(0) }}>+ Σάρωση</button>
               </div>
 
               {loading ? (
