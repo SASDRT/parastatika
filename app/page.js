@@ -30,6 +30,12 @@ const C = {
 }
 
 export default function App() {
+  const [session, setSession] = useState(null)
+  const [authLoading, setAuthLoading] = useState(true)
+  const [loginEmail, setLoginEmail] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
+  const [loginError, setLoginError] = useState('')
+  const [loginLoading, setLoginLoading] = useState(false)
   const [tab, setTab] = useState(0)
   const [invoices, setInvoices] = useState([])
   const [loading, setLoading] = useState(true)
@@ -48,7 +54,20 @@ export default function App() {
   const months = ['Ιαν', 'Φεβ', 'Μαρ', 'Απρ', 'Μαι', 'Ιουν', 'Ιουλ', 'Αυγ', 'Σεπ', 'Οκτ', 'Νοε', 'Δεκ']
   const monthsFull = ['Ιανουάριος', 'Φεβρουάριος', 'Μάρτιος', 'Απρίλιος', 'Μάιος', 'Ιούνιος', 'Ιούλιος', 'Αύγουστος', 'Σεπτέμβριος', 'Οκτώβριος', 'Νοέμβριος', 'Δεκέμβριος']
 
-  useEffect(() => { loadInvoices(); loadPayments() }, [])
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      setAuthLoading(false)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    if (session) { loadInvoices(); loadPayments() }
+  }, [session])
 
   const loadInvoices = async () => {
     setLoading(true)
@@ -60,6 +79,19 @@ export default function App() {
   const loadPayments = async () => {
     const { data, error } = await supabase.from('payments').select('*').order('date', { ascending: false })
     if (!error) setPayments(data || [])
+  }
+
+  const handleLogin = async () => {
+    if (!loginEmail || !loginPassword) { setLoginError('Συμπλήρωσε email και password'); return }
+    setLoginLoading(true); setLoginError('')
+    const { error } = await supabase.auth.signInWithPassword({ email: loginEmail, password: loginPassword })
+    if (error) setLoginError('Λάθος email ή password')
+    setLoginLoading(false)
+  }
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    setSession(null)
   }
 
   const notify = (msg, type = 'success') => {
@@ -247,6 +279,43 @@ export default function App() {
     </div>
   )
 
+  if (authLoading) return (
+    <div style={{ minHeight: '100vh', background: '#0a0c13', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ color: '#4f8ef7', fontSize: 14 }}>Φόρτωση...</div>
+    </div>
+  )
+
+  if (!session) return (
+    <div style={{ minHeight: '100vh', background: '#0a0c13', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'system-ui,-apple-system,sans-serif' }}>
+      <div style={{ background: '#13151f', border: '1px solid #1e2232', borderRadius: 16, padding: '40px 36px', width: 360, boxShadow: '0 20px 60px rgba(0,0,0,.6)' }}>
+        <div style={{ textAlign: 'center', marginBottom: 32 }}>
+          <div style={{ width: 52, height: 52, background: 'linear-gradient(135deg,#4f8ef7,#7c5cf7)', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, margin: '0 auto 14px' }}>P</div>
+          <div style={{ fontSize: 22, fontWeight: 700, color: '#e8eaf0' }}>Παραστατικά</div>
+          <div style={{ fontSize: 13, color: '#5a6070', marginTop: 4 }}>SMART AUTOMATION SOLUTIONS</div>
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, letterSpacing: 1, display: 'block', marginBottom: 6, textTransform: 'uppercase' }}>Email</label>
+          <input type="email" value={loginEmail} onChange={e => setLoginEmail(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleLogin()}
+            placeholder="email@example.com"
+            style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 8, padding: '11px 14px', fontSize: 14, width: '100%', outline: 'none', boxSizing: 'border-box' }} />
+        </div>
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, letterSpacing: 1, display: 'block', marginBottom: 6, textTransform: 'uppercase' }}>Password</label>
+          <input type="password" value={loginPassword} onChange={e => setLoginPassword(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleLogin()}
+            placeholder="••••••••"
+            style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 8, padding: '11px 14px', fontSize: 14, width: '100%', outline: 'none', boxSizing: 'border-box' }} />
+        </div>
+        {loginError && <div style={{ color: '#f87171', fontSize: 12, marginBottom: 14, textAlign: 'center' }}>{loginError}</div>}
+        <button onClick={handleLogin} disabled={loginLoading}
+          style={{ background: 'linear-gradient(135deg,#4f8ef7,#7c5cf7)', color: '#fff', border: 'none', borderRadius: 9, padding: '13px', fontSize: 15, fontWeight: 700, width: '100%', cursor: 'pointer', opacity: loginLoading ? .7 : 1 }}>
+          {loginLoading ? 'Σύνδεση...' : 'Είσοδος'}
+        </button>
+      </div>
+    </div>
+  )
+
   return (
     <div style={C.app}>
       {/* HEADER */}
@@ -256,6 +325,7 @@ export default function App() {
             <div style={C.logoIcon}>P</div>
             <span>Παραστατικά</span>
           </div>
+          <button onClick={handleLogout} style={{ background: 'transparent', color: '#5a6070', border: '1px solid #2a3040', padding: '5px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer', marginLeft: 0 }}>Αποσύνδεση</button>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <div style={{ position: 'relative' }}>
               <button onClick={() => setShowPeriodPicker(!showPeriodPicker)}
