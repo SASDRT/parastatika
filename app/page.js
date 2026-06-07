@@ -1181,13 +1181,32 @@ function PaymentsTab({ payments, invoices, loadPayments, fmt, fmtDate, notify })
           📥 Import Emblem
           <input type="file" accept=".json" style={{ display: 'none' }} onChange={async e => {
             const file = e.target.files[0]; if (!file) return
-            const text = await file.text()
-            const json = JSON.parse(text)
-            const traders = json.traders || []
-            const res = await fetch('/api/ocr/import-traders', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({traders}) })
-            const result = await res.json()
-            if (result.success) notify(`✓ Εισήχθησαν ${result.count} επαφές από Emblem!`)
-            else notify('⚠️ Σφάλμα import: ' + result.error, 'error')
+            try {
+              const text = await file.text()
+              const data = JSON.parse(text)
+              const traders = data.traders || []
+              const rows = traders.map(t => {
+                const parts = (t.comName || '').split('||')
+                return {
+                  emblem_id: t.id,
+                  code: t.code || null,
+                  name: (parts[0] || '').trim() || null,
+                  trade_name: (parts[1] || '').trim() || null,
+                  afm: t.afm || null,
+                  city: (t.city || '').trim() || null,
+                  address: (t.address || '').trim() || null,
+                  postal: (t.postalcode || '').trim() || null,
+                  phone: (t.phone1 || t.phone2 || '').trim() || null,
+                  email: (t.email || '').trim() || null,
+                  is_customer: t.iscustomer === 1,
+                  is_supplier: t.issupplier === 1
+                }
+              }).filter(r => r.name)
+              await supabase.from('traders').delete().neq('id', 0)
+              const { error } = await supabase.from('traders').insert(rows)
+              if (error) notify('⚠️ ' + error.message, 'error')
+              else notify(`✓ Εισήχθησαν ${rows.length} επαφές!`)
+            } catch(err) { notify('⚠️ ' + err.message, 'error') }
           }} />
         </label>
         <button onClick={() => setShowForm(!showForm)} style={{ background: 'linear-gradient(135deg,#4f8ef7,#7c5cf7)', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>+ Νέα</button>
