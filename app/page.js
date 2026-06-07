@@ -707,80 +707,18 @@ export default function App() {
         {/* ══════════════════════════════════════
             TAB 2 & 3: ΛΙΣΤΑ ΠΑΡΑΣΤΑΤΙΚΩΝ
         ══════════════════════════════════════ */}
-        {(tab === 2 || tab === 3) && (() => {
-          const list = tab === 2 ? income : expenses
-          const color = tab === 2 ? '#4ade80' : '#f87171'
-          const total = list.reduce((s, i) => s + (i.total || 0), 0)
-          const flist = filtered(list)
-          const { sorted: sortedList, SortTh: InvSortTh } = useSortable(flist, 'date', 'desc')
-          return (
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
-                <h2 style={{ fontSize: 19, fontWeight: 700 }}>{tab === 2 ? 'Έσοδα' : 'Έξοδα'}</h2>
-                <span style={{ fontFamily: 'monospace', color, fontSize: 17, fontWeight: 700 }}>{fmt(total)}</span>
-                <span style={{ color: '#5a6070', fontSize: 13, background: '#1e2232', padding: '3px 10px', borderRadius: 20 }}>{list.length} παραστατικά</span>
-                <div style={{ marginLeft: 'auto', width: 260 }}>
-                  <input placeholder="🔍 Αναζήτηση..." value={searchQ} onChange={e => setSearchQ(e.target.value)}
-                    style={{ ...C.input, fontSize: 13 }} />
-                </div>
-                <button style={C.btnPrimary} onClick={() => {
-                  setEditForm({ type: tab === 2 ? 'income' : 'expense', date: new Date().toISOString().split('T')[0], items: [] })
-                  setTab(1)
-                }}>+ Χειροκίνητη καταχώρηση</button>
-                <button style={C.btnGhost} onClick={() => { setEditForm(null); setPreviewImg(null); setTab(1) }}>+ Σάρωση</button>
-              </div>
-
-              {loading ? (
-                <div style={{ ...C.card, textAlign: 'center', padding: 48, color: '#5a6070' }}>Φόρτωση...</div>
-              ) : flist.length === 0 ? (
-                <div style={{ ...C.card, textAlign: 'center', padding: 56, color: '#5a6070' }}>
-                  <div style={{ fontSize: 36, marginBottom: 12 }}>📄</div>
-                  <div style={{ fontWeight: 600 }}>Δεν βρέθηκαν παραστατικά</div>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '95px 100px 140px 1fr 115px 95px 95px 115px 48px', gap: 6, padding: '6px 16px', alignItems: 'center' }}>
-                    <InvSortTh label="ΗΜΕΡΟΜΗΝΙΑ" field="date" />
-                    <InvSortTh label="ΑΡΙΘΜΟΣ" field="number" />
-                    <InvSortTh label="ΕΙΔΟΣ" field="invoice_type" />
-                    <InvSortTh label="ΕΠΩΝΥΜΙΑ" field="counterparty" />
-                    <InvSortTh label="ΑΦΜ" field="afm" />
-                    <InvSortTh label="ΚΑΘΑΡΗ" field="subtotal" style={{ textAlign: 'right' }} />
-                    <InvSortTh label="ΦΠΑ" field="vat" style={{ textAlign: 'right' }} />
-                    <InvSortTh label="ΣΥΝΟΛΟ" field="total" style={{ textAlign: 'right' }} />
-                    <span></span>
-                  </div>
-                  {sortedList.map(inv => (
-                    <div key={inv.id} style={{ ...C.card2, overflow: 'hidden' }}>
-                      {/* Γραμμή συνόψεως */}
-                      <div onClick={() => setExpandedId(expandedId === inv.id ? null : inv.id)}
-                        style={{ display: 'grid', gridTemplateColumns: '95px 100px 140px 1fr 115px 95px 95px 115px 48px', gap: 6, padding: '12px 16px', cursor: 'pointer', alignItems: 'center' }}
-                        onMouseEnter={e => e.currentTarget.style.background = '#1a1d2b'}
-                        onMouseLeave={e => e.currentTarget.style.background = ''}>
-                        <span style={{ color: '#9ca3af', fontSize: 11, fontFamily: 'monospace' }}>{fmtDate(inv.date)}</span>
-                        <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#7c5cf7' }}>{inv.series || ''}{inv.number || '—'}</span>
-                        <span style={{ fontSize: 11, color: '#4f8ef7', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inv.invoice_type || '—'}</span>
-                        <div style={{ overflow: 'hidden' }}>
-                          <div style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inv.type === 'expense' ? (inv.issuer_name || inv.counterparty || '—') : (inv.counterparty || '—')}</div>
-                          {(inv.type === 'expense' ? inv.issuer_trade_name : inv.trade_name) && <div style={{ fontSize: 10, color: '#5a6070', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>"{inv.type === 'expense' ? inv.issuer_trade_name : inv.trade_name}"</div>}
-                        </div>
-                        <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#5a6070' }}>{inv.type === 'expense' ? (inv.issuer_afm || inv.afm || '—') : (inv.afm || '—')}</span>
-                        <span style={{ fontFamily: 'monospace', fontSize: 12, textAlign: 'right' }}>{fmt(inv.subtotal)}</span>
-                        <span style={{ fontFamily: 'monospace', fontSize: 12, textAlign: 'right', color: '#5a6070' }}>{fmt(inv.vat)}</span>
-                        <span style={{ fontFamily: 'monospace', fontSize: 14, textAlign: 'right', fontWeight: 700, color }}>{fmt(inv.total)}</span>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
-                          <span style={{ color: '#5a6070', fontSize: 11 }}>{expandedId === inv.id ? '▲' : '▼'}</span>
-                          <button style={C.btnDanger} onClick={e => { e.stopPropagation(); deleteInvoice(inv.id) }}>✕</button>
-                        </div>
-                      </div>
-                      {expandedId === inv.id && <InvoiceDetail inv={inv} color={color} fmt={fmt} fmtDate={fmtDate} />}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )
-        })()}
+        {(tab === 2 || tab === 3) && (
+          <InvoiceList
+            list={tab === 2 ? income : expenses}
+            color={tab === 2 ? '#4ade80' : '#f87171'}
+            title={tab === 2 ? 'Έσοδα' : 'Έξοδα'}
+            searchQ={searchQ} setSearchQ={setSearchQ}
+            filtered={filtered} expandedId={expandedId} setExpandedId={setExpandedId}
+            deleteInvoice={deleteInvoice} setTab={setTab} setEditForm={setEditForm}
+            fmt={fmt} fmtDate={fmtDate} loading={loading}
+            tab={tab}
+          />
+        )}
 
         {/* ══════════════════════════════════════
             TAB 3: ΠΛΗΡΩΜΕΣ
@@ -2371,6 +2309,97 @@ function DashboardTab({ income, expenses, yearPayments, generalExpenses, invoice
           ))}
         </div>
       </div>
+    </div>
+  )
+}
+
+/* ═══════════════════════════════════════
+   INVOICE LIST COMPONENT (με sorting)
+═══════════════════════════════════════ */
+function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expandedId, setExpandedId, deleteInvoice, setTab, setEditForm, fmt, fmtDate, loading, tab }) {
+  const total = list.reduce((s, i) => s + (i.total || 0), 0)
+  const flist = filtered(list)
+  const { sorted: sortedList, SortTh } = useSortable(flist, 'date', 'desc')
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
+        <h2 style={{ fontSize: 19, fontWeight: 700 }}>{title}</h2>
+        <span style={{ fontFamily: 'monospace', color, fontSize: 17, fontWeight: 700 }}>{fmt(total)}</span>
+        <span style={{ color: '#5a6070', fontSize: 13, background: '#1e2232', padding: '3px 10px', borderRadius: 20 }}>{list.length} παραστατικά</span>
+        <div style={{ marginLeft: 'auto', width: 260 }}>
+          <input placeholder="Αναζήτηση..." value={searchQ} onChange={e => setSearchQ(e.target.value)}
+            style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '9px 12px', fontSize: 13, width: '100%', outline: 'none', fontFamily: 'inherit' }} />
+        </div>
+        <button style={{ background: 'linear-gradient(135deg,#4f8ef7,#7c5cf7)', color: '#fff', padding: '10px 18px', borderRadius: 8, fontWeight: 600, fontSize: 13, border: 'none', cursor: 'pointer' }}
+          onClick={() => { setEditForm({ type: tab === 2 ? 'income' : 'expense', date: new Date().toISOString().split('T')[0], items: [] }); setTab(1) }}>
+          + Χειροκίνητη
+        </button>
+        <button style={{ background: 'transparent', color: '#9ca3af', border: '1px solid #2a3040', padding: '9px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}
+          onClick={() => { setEditForm(null); setTab(1) }}>
+          + Σάρωση
+        </button>
+      </div>
+
+      {loading ? (
+        <div style={{ background: '#13151f', border: '1px solid #1e2232', borderRadius: 12, textAlign: 'center', padding: 48, color: '#5a6070' }}>Φόρτωση...</div>
+      ) : sortedList.length === 0 ? (
+        <div style={{ background: '#13151f', border: '1px solid #1e2232', borderRadius: 12, textAlign: 'center', padding: 56, color: '#5a6070' }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>📄</div>
+          <div style={{ fontWeight: 600 }}>Δεν βρέθηκαν παραστατικά</div>
+        </div>
+      ) : (
+        <div style={{ background: '#13151f', border: '1px solid #1e2232', borderRadius: 12, overflow: 'hidden' }}>
+          {/* Sortable headers */}
+          <div style={{ display: 'grid', gridTemplateColumns: '95px 100px 140px 1fr 115px 95px 95px 115px 48px', gap: 6, padding: '0 16px', background: '#0f1117', borderBottom: '1px solid #1e2232' }}>
+            <SortTh label="ΗΜΕΡΟΜΗΝΙΑ" field="date" />
+            <SortTh label="ΑΡΙΘΜΟΣ" field="number" />
+            <SortTh label="ΕΙΔΟΣ" field="invoice_type" />
+            <SortTh label="ΕΠΩΝΥΜΙΑ" field="counterparty" />
+            <SortTh label="ΑΦΜ" field="afm" />
+            <SortTh label="ΚΑΘΑΡΗ" field="subtotal" style={{ textAlign: 'right' }} />
+            <SortTh label="ΦΠΑ" field="vat" style={{ textAlign: 'right' }} />
+            <SortTh label="ΣΥΝΟΛΟ" field="total" style={{ textAlign: 'right' }} />
+            <th style={{ padding: '9px 10px', borderBottom: 'none' }}></th>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {sortedList.map(inv => (
+              <div key={inv.id} style={{ borderBottom: '1px solid #161824' }}>
+                <div onClick={() => setExpandedId(expandedId === inv.id ? null : inv.id)}
+                  style={{ display: 'grid', gridTemplateColumns: '95px 100px 140px 1fr 115px 95px 95px 115px 48px', gap: 6, padding: '12px 16px', cursor: 'pointer', alignItems: 'center' }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#1a1d2b'}
+                  onMouseLeave={e => e.currentTarget.style.background = ''}>
+                  <span style={{ color: '#9ca3af', fontSize: 11, fontFamily: 'monospace' }}>{fmtDate(inv.date)}</span>
+                  <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#7c5cf7' }}>{inv.series || ''}{inv.number || '—'}</span>
+                  <span style={{ fontSize: 11, color: '#4f8ef7', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inv.invoice_type || '—'}</span>
+                  <div style={{ overflow: 'hidden' }}>
+                    <div style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {inv.type === 'expense' ? (inv.issuer_name || inv.counterparty || '—') : (inv.counterparty || '—')}
+                    </div>
+                    {(inv.type === 'expense' ? inv.issuer_trade_name : inv.trade_name) && (
+                      <div style={{ fontSize: 10, color: '#5a6070', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        "{inv.type === 'expense' ? inv.issuer_trade_name : inv.trade_name}"
+                      </div>
+                    )}
+                  </div>
+                  <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#5a6070' }}>
+                    {inv.type === 'expense' ? (inv.issuer_afm || inv.afm || '—') : (inv.afm || '—')}
+                  </span>
+                  <span style={{ fontFamily: 'monospace', fontSize: 12, textAlign: 'right' }}>{fmt(inv.subtotal)}</span>
+                  <span style={{ fontFamily: 'monospace', fontSize: 12, textAlign: 'right', color: '#5a6070' }}>{fmt(inv.vat)}</span>
+                  <span style={{ fontFamily: 'monospace', fontSize: 14, textAlign: 'right', fontWeight: 700, color }}>{fmt(inv.total)}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
+                    <span style={{ color: '#5a6070', fontSize: 11 }}>{expandedId === inv.id ? '▲' : '▼'}</span>
+                    <button style={{ background: 'transparent', color: '#f87171', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}
+                      onClick={e => { e.stopPropagation(); deleteInvoice(inv.id) }}>✕</button>
+                  </div>
+                </div>
+                {expandedId === inv.id && <InvoiceDetail inv={inv} color={color} fmt={fmt} fmtDate={fmtDate} />}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
