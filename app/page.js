@@ -333,37 +333,10 @@ export default function App() {
                           <button style={s.btnDanger} onClick={e => { e.stopPropagation(); deleteInvoice(inv.id) }}>✕</button>
                         </div>
                       </div>
-                      {/* Αναπτυσσόμενα είδη */}
+                      {/* Αναπτυσσόμενη προβολή τιμολογίου */}
                       {expandedId === inv.id && (
-                        <div style={{ borderTop: '1px solid #2e3347', padding: '12px 16px', background: '#13151f' }}>
-                          {inv.items && inv.items.length > 0 ? (
-                            <div>
-                              <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600, letterSpacing: 1, marginBottom: 8 }}>ΕΙΔΗ ΠΑΡΑΣΤΑΤΙΚΟΥ</div>
-                              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                <thead>
-                                  <tr>
-                                    {['ΠΕΡΙΓΡΑΦΗ', 'ΠΟΣ.', 'ΤΙΜΗ ΜΟΝΑΔΑΣ', 'ΣΥΝΟΛΟ'].map(h => (
-                                      <th key={h} style={{ ...s.th, fontSize: 10, padding: '6px 8px' }}>{h}</th>
-                                    ))}
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {inv.items.map((item, i) => (
-                                    <tr key={i}>
-                                      <td style={{ ...s.td, fontSize: 12, padding: '8px' }}>{item.description || '—'}</td>
-                                      <td style={{ ...s.td, fontSize: 12, padding: '8px', fontFamily: 'monospace', textAlign: 'right' }}>{item.quantity || '—'}</td>
-                                      <td style={{ ...s.td, fontSize: 12, padding: '8px', fontFamily: 'monospace', textAlign: 'right' }}>{item.unit_price ? fmt(item.unit_price) : '—'}</td>
-                                      <td style={{ ...s.td, fontSize: 12, padding: '8px', fontFamily: 'monospace', textAlign: 'right', fontWeight: 600, color }}>{item.total ? fmt(item.total) : '—'}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          ) : (
-                            <div style={{ color: '#6b7280', fontSize: 12 }}>
-                              {inv.notes ? <span><strong>Σημειώσεις:</strong> {inv.notes}</span> : 'Δεν υπάρχουν είδη καταχωρημένα'}
-                            </div>
-                          )}
+                        <div style={{ borderTop: '1px solid #2e3347', background: '#13151f' }}>
+                          <InvoiceDetail inv={inv} color={color} fmt={fmt} fmtDate={fmtDate} />
                         </div>
                       )}
                     </div>
@@ -406,6 +379,165 @@ export default function App() {
           </div>
         )}
 
+      </div>
+    </div>
+  )
+}
+
+function InvoiceDetail({ inv, color, fmt, fmtDate }) {
+  const items = inv.items || []
+  const totalDiscount = items.reduce((s, i) => s + ((i.discount || 0) * (i.quantity || 1) * (i.unit_price || 0) / 100), 0)
+  const totalNet = items.length > 0 ? items.reduce((s, i) => s + (i.total || 0), 0) : (inv.subtotal || 0)
+  const totalVat = inv.vat || 0
+  const totalAmount = inv.total || 0
+
+  const printInvoice = () => {
+    const win = window.open('', '_blank')
+    win.document.write(`
+      <html><head><title>Παραστατικό ${inv.number || ''}</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 20px; color: #000; }
+        h2 { margin-bottom: 4px; }
+        .header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .info { margin-bottom: 16px; font-size: 13px; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 16px; }
+        th { background: #f0f0f0; border: 1px solid #ccc; padding: 6px 8px; text-align: left; }
+        td { border: 1px solid #ccc; padding: 6px 8px; }
+        .totals { margin-left: auto; width: 280px; }
+        .totals table td { border: none; padding: 4px 8px; }
+        .totals .grand { font-weight: bold; font-size: 15px; border-top: 2px solid #000; }
+        @media print { button { display: none; } }
+      </style></head><body>
+      <div class="header">
+        <div><h2>ΠΑΡΑΣΤΑΤΙΚΟ ${inv.type === 'income' ? 'ΠΩΛΗΣΗΣ' : 'ΑΓΟΡΑΣ'}</h2><div>Αρ. ${inv.number || '—'}</div></div>
+        <div style="text-align:right"><div>Ημερομηνία: ${fmtDate(inv.date)}</div><div>Τρόπος πληρωμής: ${inv.payment_method || '—'}</div></div>
+      </div>
+      <div class="info">
+        <strong>${inv.type === 'income' ? 'ΠΕΛΑΤΗΣ' : 'ΠΡΟΜΗΘΕΥΤΗΣ'}:</strong> ${inv.counterparty || '—'} &nbsp;&nbsp;
+        <strong>ΑΦΜ:</strong> ${inv.afm || '—'}
+      </div>
+      <table>
+        <thead><tr><th>ΠΕΡΙΓΡΑΦΗ</th><th>ΠΟΣ.</th><th>ΤΙΜΗ ΜΟΝ.</th><th>ΕΚΠΤΩΣΗ %</th><th>ΚΑΘΑΡΗ ΑΞΙΑ</th><th>ΦΠΑ %</th><th>ΑΞΙΑ ΦΠΑ</th><th>ΣΥΝΟΛΟ</th></tr></thead>
+        <tbody>
+          ${items.length > 0 ? items.map(item => {
+            const net = (item.unit_price || 0) * (item.quantity || 1) * (1 - (item.discount || 0) / 100)
+            const vatAmt = net * ((item.vat_rate || inv.vat_rate || 24) / 100)
+            return `<tr>
+              <td>${item.description || '—'}</td>
+              <td style="text-align:right">${item.quantity || 1}</td>
+              <td style="text-align:right">${(item.unit_price || 0).toFixed(2)}€</td>
+              <td style="text-align:right">${item.discount || 0}%</td>
+              <td style="text-align:right">${net.toFixed(2)}€</td>
+              <td style="text-align:right">${item.vat_rate || inv.vat_rate || 24}%</td>
+              <td style="text-align:right">${vatAmt.toFixed(2)}€</td>
+              <td style="text-align:right"><strong>${(item.total || net + vatAmt).toFixed(2)}€</strong></td>
+            </tr>`
+          }).join('') : `<tr><td colspan="8" style="text-align:center;color:#999">Δεν υπάρχουν είδη</td></tr>`}
+        </tbody>
+      </table>
+      <div class="totals">
+        <table>
+          <tr><td>Καθαρή αξία:</td><td style="text-align:right">${totalNet.toFixed(2)}€</td></tr>
+          ${totalDiscount > 0 ? `<tr><td>Εκπτώσεις:</td><td style="text-align:right;color:red">-${totalDiscount.toFixed(2)}€</td></tr>` : ''}
+          <tr><td>ΦΠΑ (${inv.vat_rate || 24}%):</td><td style="text-align:right">${totalVat.toFixed(2)}€</td></tr>
+          <tr class="grand"><td><strong>ΣΥΝΟΛΟ:</strong></td><td style="text-align:right"><strong>${totalAmount.toFixed(2)}€</strong></td></tr>
+        </table>
+      </div>
+      ${inv.notes ? `<div style="margin-top:16px;font-size:12px;color:#666"><strong>Σημειώσεις:</strong> ${inv.notes}</div>` : ''}
+      <script>window.onload=()=>window.print()</script>
+      </body></html>
+    `)
+    win.document.close()
+  }
+
+  return (
+    <div style={{ padding: '16px 20px' }}>
+      {/* Κεφαλίδα λεπτομέρειας */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <div style={{ fontSize: 11, color: '#6b7280', fontWeight: 600, letterSpacing: 1 }}>ΑΝΑΛΥΣΗ ΠΑΡΑΣΤΑΤΙΚΟΥ</div>
+        <button onClick={printInvoice} style={{ background: '#2e3347', color: '#e8eaf0', border: 'none', padding: '6px 14px', borderRadius: 6, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+          🖨️ Εκτύπωση / PDF
+        </button>
+      </div>
+
+      {/* Στοιχεία */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10, marginBottom: 16 }}>
+        {[
+          ['Τρόπος Πληρωμής', inv.payment_method || '—'],
+          ['ΦΠΑ %', `${inv.vat_rate || 24}%`],
+          ['Σημειώσεις', inv.notes || '—'],
+        ].map(([label, val]) => (
+          <div key={label} style={{ background: '#1a1d27', borderRadius: 8, padding: '8px 12px' }}>
+            <div style={{ fontSize: 10, color: '#6b7280', fontWeight: 600, marginBottom: 3 }}>{label}</div>
+            <div style={{ fontSize: 12 }}>{val}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Πίνακας ειδών */}
+      {items.length > 0 ? (
+        <div style={{ overflowX: 'auto', marginBottom: 16 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 700 }}>
+            <thead>
+              <tr style={{ background: '#1a1d27' }}>
+                {['ΠΕΡΙΓΡΑΦΗ', 'ΠΟΣ.', 'ΤΙΜΗ ΜΟΝ.', 'ΕΚΠΤΩΣΗ %', 'ΚΑΘΑΡΗ ΑΞΙΑ', 'ΦΠΑ %', 'ΑΞΙΑ ΦΠΑ', 'ΣΥΝΟΛΟ'].map(h => (
+                  <th key={h} style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', padding: '8px 10px', borderBottom: '1px solid #2e3347', textAlign: h === 'ΠΕΡΙΓΡΑΦΗ' ? 'left' : 'right', letterSpacing: .5 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item, i) => {
+                const qty = item.quantity || 1
+                const up = item.unit_price || 0
+                const disc = item.discount || 0
+                const net = up * qty * (1 - disc / 100)
+                const vatR = item.vat_rate || inv.vat_rate || 24
+                const vatAmt = net * (vatR / 100)
+                const total = item.total || (net + vatAmt)
+                return (
+                  <tr key={i} style={{ borderBottom: '1px solid #1e2130' }}>
+                    <td style={{ padding: '9px 10px', fontSize: 12, fontWeight: 500 }}>{item.description || '—'}</td>
+                    <td style={{ padding: '9px 10px', fontSize: 12, textAlign: 'right', fontFamily: 'monospace' }}>{qty}</td>
+                    <td style={{ padding: '9px 10px', fontSize: 12, textAlign: 'right', fontFamily: 'monospace' }}>{up.toFixed(2)}€</td>
+                    <td style={{ padding: '9px 10px', fontSize: 12, textAlign: 'right', fontFamily: 'monospace', color: disc > 0 ? '#f87171' : '#6b7280' }}>{disc > 0 ? `-${disc}%` : '—'}</td>
+                    <td style={{ padding: '9px 10px', fontSize: 12, textAlign: 'right', fontFamily: 'monospace' }}>{net.toFixed(2)}€</td>
+                    <td style={{ padding: '9px 10px', fontSize: 12, textAlign: 'right', fontFamily: 'monospace', color: '#6b7280' }}>{vatR}%</td>
+                    <td style={{ padding: '9px 10px', fontSize: 12, textAlign: 'right', fontFamily: 'monospace', color: '#6b7280' }}>{vatAmt.toFixed(2)}€</td>
+                    <td style={{ padding: '9px 10px', fontSize: 12, textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color }}>{total.toFixed(2)}€</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div style={{ color: '#6b7280', fontSize: 12, marginBottom: 16, padding: '12px', background: '#1a1d27', borderRadius: 8 }}>
+          Δεν υπάρχουν αναλυτικά είδη — το AI δεν μπόρεσε να τα εξαγάγει από αυτό το παραστατικό.
+        </div>
+      )}
+
+      {/* Σύνολα */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ background: '#1a1d27', borderRadius: 10, padding: '14px 20px', minWidth: 260, border: '1px solid #2e3347' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13, color: '#9ca3af' }}>
+            <span>Καθαρή αξία:</span>
+            <span style={{ fontFamily: 'monospace' }}>{totalNet.toFixed(2)}€</span>
+          </div>
+          {totalDiscount > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13, color: '#f87171' }}>
+              <span>Εκπτώσεις:</span>
+              <span style={{ fontFamily: 'monospace' }}>-{totalDiscount.toFixed(2)}€</span>
+            </div>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', fontSize: 13, color: '#9ca3af' }}>
+            <span>ΦΠΑ ({inv.vat_rate || 24}%):</span>
+            <span style={{ fontFamily: 'monospace' }}>{totalVat.toFixed(2)}€</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0 4px', fontSize: 16, fontWeight: 700, borderTop: '1px solid #2e3347', marginTop: 6, color }}>
+            <span>ΣΥΝΟΛΟ:</span>
+            <span style={{ fontFamily: 'monospace' }}>{totalAmount.toFixed(2)}€</span>
+          </div>
+        </div>
       </div>
     </div>
   )
