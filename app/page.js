@@ -151,14 +151,21 @@ export default function App() {
   const filtered = (list) => {
     if (!searchQ) return list
     const q = searchQ.toLowerCase()
-    return list.filter(i =>
-      (i.counterparty || '').toLowerCase().includes(q) ||
-      (i.trade_name || '').toLowerCase().includes(q) ||
-      (i.number || '').toLowerCase().includes(q) ||
-      (i.afm || '').includes(q) ||
-      (i.invoice_type || '').toLowerCase().includes(q) ||
-      (i.notes || '').toLowerCase().includes(q)
-    )
+    return list.filter(i => {
+      const itemMatch = (i.items || []).some(it =>
+        (it.description || '').toLowerCase().includes(q) ||
+        (it.code || '').toLowerCase().includes(q)
+      )
+      return (i.counterparty || '').toLowerCase().includes(q) ||
+        (i.issuer_name || '').toLowerCase().includes(q) ||
+        (i.trade_name || '').toLowerCase().includes(q) ||
+        (i.number || '').toLowerCase().includes(q) ||
+        (i.series || '').toLowerCase().includes(q) ||
+        (i.afm || '').includes(q) ||
+        (i.invoice_type || '').toLowerCase().includes(q) ||
+        (i.notes || '').toLowerCase().includes(q) ||
+        itemMatch
+    })
   }
 
   const byCounterparty = (type) => {
