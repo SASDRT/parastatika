@@ -571,7 +571,7 @@ export default function App() {
         {/* ══════════════════════════════════════
             TAB 0: DASHBOARD
         ══════════════════════════════════════ */}
-        {tab === 8 && (
+        {tab === 8 && userRole === 'admin' && (
           <DashboardTab
             income={income} expenses={expenses}
             yearPayments={yearPayments}
