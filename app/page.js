@@ -1794,6 +1794,7 @@ function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year
     description: '',
     amount: '',
     vat: '',
+    vat_rate: '24',
     payment_method: 'Μετρητά',
     receipt_ref: '',
     vendor: '',
@@ -1860,7 +1861,7 @@ function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year
       notify(editingId ? 'Ενημερώθηκε!' : 'Αποθηκεύτηκε!')
       setShowForm(false)
       setEditingId(null)
-      setForm({ date: new Date().toISOString().split('T')[0], category: 'Διόδια', description: '', amount: '', vat: '', payment_method: 'Μετρητά', receipt_ref: '', vendor: '', notes: '' })
+      setForm({ date: new Date().toISOString().split('T')[0], category: 'Διόδια', description: '', amount: '', vat: '', vat_rate: '24', payment_method: 'Μετρητά', receipt_ref: '', vendor: '', notes: '' })
       await loadExpenses()
     }
     setSaving(false)
@@ -1952,14 +1953,36 @@ function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year
                   </select>
                 </div>
                 <div>
-                  <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΠΟΣΟ €</label>
-                  <input type="number" step="0.01" value={form.amount} onChange={e => ef('amount', e.target.value)}
-                    style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#f87171', borderRadius: 7, padding: '8px 10px', fontSize: 14, fontWeight: 700, width: '100%', outline: 'none', fontFamily: 'monospace' }} />
+                  <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΠΟΣΟ € (με ΦΠΑ)</label>
+                  <input type="number" step="0.01" value={form.amount} onChange={e => {
+                    ef('amount', e.target.value)
+                    const rate = parseFloat(form.vat_rate) || 0
+                    const amount = parseFloat(e.target.value) || 0
+                    if (rate > 0 && amount > 0) {
+                      const vatAmt = Math.round((amount - amount / (1 + rate/100)) * 100) / 100
+                      ef('vat', vatAmt.toFixed(2))
+                    }
+                  }} style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#f87171', borderRadius: 7, padding: '8px 10px', fontSize: 14, fontWeight: 700, width: '100%', outline: 'none', fontFamily: 'monospace' }} />
                 </div>
                 <div>
-                  <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΦΠΑ €</label>
-                  <input type="number" step="0.01" value={form.vat} onChange={e => ef('vat', e.target.value)}
-                    style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '8px 10px', fontSize: 13, width: '100%', outline: 'none', fontFamily: 'monospace' }} />
+                  <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΦΠΑ %</label>
+                  <select value={form.vat_rate || '0'} onChange={e => {
+                    const rate = parseFloat(e.target.value) || 0
+                    const amount = parseFloat(form.amount) || 0
+                    const vatAmt = amount > 0 && rate > 0 ? Math.round((amount - amount / (1 + rate/100)) * 100) / 100 : 0
+                    ef('vat_rate', e.target.value)
+                    ef('vat', vatAmt.toFixed(2))
+                  }} style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '8px 10px', fontSize: 13, width: '100%', outline: 'none' }}>
+                    <option value="0">Χωρίς ΦΠΑ</option>
+                    <option value="6">6%</option>
+                    <option value="13">13%</option>
+                    <option value="24">24%</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΦΠΑ € (αυτόματο)</label>
+                  <input type="number" step="0.01" value={form.vat || ''} onChange={e => ef('vat', e.target.value)}
+                    style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#4ade80', borderRadius: 7, padding: '8px 10px', fontSize: 13, width: '100%', outline: 'none', fontFamily: 'monospace' }} />
                 </div>
                 <div>
                   <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΠΡΟΜΗΘΕΥΤΗΣ</label>
@@ -1992,7 +2015,7 @@ function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year
                   style={{ background: 'linear-gradient(135deg,#4f8ef7,#7c5cf7)', color: '#fff', border: 'none', padding: '9px 22px', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer', opacity: saving ? .7 : 1 }}>
                   {saving ? '...' : 'Αποθήκευση'}
                 </button>
-                <button onClick={() => { setShowForm(false); setEditingId(null); setForm({ date: new Date().toISOString().split('T')[0], category: 'Διόδια', description: '', amount: '', vat: '', payment_method: 'Μετρητά', receipt_ref: '', vendor: '', notes: '' }) }} style={{ background: 'transparent', color: '#5a6070', border: '1px solid #2a3040', padding: '9px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>Ακύρωση</button>
+                <button onClick={() => { setShowForm(false); setEditingId(null); setForm({ date: new Date().toISOString().split('T')[0], category: 'Διόδια', description: '', amount: '', vat: '', vat_rate: '24', payment_method: 'Μετρητά', receipt_ref: '', vendor: '', notes: '' }) }} style={{ background: 'transparent', color: '#5a6070', border: '1px solid #2a3040', padding: '9px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>Ακύρωση</button>
               </div>
             </div>
           )}
