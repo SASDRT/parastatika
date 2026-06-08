@@ -35,7 +35,7 @@ function useSortable(data, defaultKey = 'date', defaultDir = 'desc') {
 
 const fmt = (n) => new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' }).format(n || 0)
 const fmtDate = (d) => { if (!d) return '—'; try { return new Date(d).toLocaleDateString('el-GR') } catch { return d } }
-const ALL_TABS = ['Dashboard', 'Σάρωση', 'Έσοδα', 'Έξοδα', 'Πληρωμές', 'Γεν. Έξοδα', 'Καρτέλες', 'Υπόλοιπα', 'Αναφορές']
+const ALL_TABS = ['Σάρωση', 'Έσοδα', 'Έξοδα', 'Πληρωμές', 'Γεν. Έξοδα', 'Καρτέλες', 'Υπόλοιπα', 'Αναφορές', 'Dashboard']
 const EMPLOYEE_TABS = ['Σάρωση', 'Έσοδα', 'Έξοδα', 'Γεν. Έξοδα']
 
 const C = {
@@ -331,7 +331,7 @@ export default function App() {
       notify('Παραστατικό αποθηκεύτηκε επιτυχώς!')
       setEditForm(null); setPreviewImg(null)
       await loadInvoices()
-      setTab(row.type === 'income' ? 2 : 3)
+      setTab(row.type === 'income' ? 1 : 2)
     }
     setSaving(false)
   }
@@ -352,7 +352,7 @@ export default function App() {
     copy.mark = null
     copy.uid = null
     setEditForm(copy)
-    setTab(1)
+    setTab(0)
     notify('Αντίγραφο έτοιμο — επεξεργάσου και αποθήκευσε!')
   }
 
@@ -569,7 +569,7 @@ export default function App() {
         {/* ══════════════════════════════════════
             TAB 0: DASHBOARD
         ══════════════════════════════════════ */}
-        {tab === 0 && (
+        {tab === 8 && (
           <DashboardTab
             income={income} expenses={expenses}
             yearPayments={yearPayments}
@@ -583,7 +583,7 @@ export default function App() {
         {/* ══════════════════════════════════════
             TAB 1: ΣΑΡΩΣΗ
         ══════════════════════════════════════ */}
-        {tab === 1 && (
+        {tab === 0 && (
           <div style={{ display: 'grid', gridTemplateColumns: editForm ? '380px 1fr' : '1fr', gap: 20 }}>
             {/* Αριστερή στήλη */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -852,11 +852,11 @@ export default function App() {
         {/* ══════════════════════════════════════
             TAB 2 & 3: ΛΙΣΤΑ ΠΑΡΑΣΤΑΤΙΚΩΝ
         ══════════════════════════════════════ */}
-        {(tab === 2 || tab === 3) && (
+        {(tab === 1 || tab === 2) && (
           <InvoiceList
             list={tab === 2 ? income : expenses}
             color={tab === 2 ? '#4ade80' : '#f87171'}
-            title={tab === 2 ? 'Έσοδα' : 'Έξοδα'}
+            title={tab === 1 ? 'Έσοδα' : 'Έξοδα'}
             searchQ={searchQ} setSearchQ={setSearchQ}
             filtered={filtered} expandedId={expandedId} setExpandedId={setExpandedId}
             deleteInvoice={deleteInvoice} setTab={setTab} setEditForm={setEditForm}
@@ -869,12 +869,12 @@ export default function App() {
         {/* ══════════════════════════════════════
             TAB 3: ΠΛΗΡΩΜΕΣ
         ══════════════════════════════════════ */}
-        {tab === 4 && <PaymentsTab payments={yearPayments} invoices={invoices} loadPayments={loadPayments} fmt={fmt} fmtDate={fmtDate} notify={notify} year={year} month={month} monthsFull={monthsFull} />}
+        {tab === 3 && <PaymentsTab payments={yearPayments} invoices={invoices} loadPayments={loadPayments} fmt={fmt} fmtDate={fmtDate} notify={notify} year={year} month={month} monthsFull={monthsFull} />}
 
         {/* ══════════════════════════════════════
             TAB 4: ΓΕΝΙΚΑ ΕΞΟΔΑ
         ══════════════════════════════════════ */}
-        {tab === 5 && <GeneralExpensesTab expenses={generalExpenses.filter(e => {
+        {tab === 4 && <GeneralExpensesTab expenses={generalExpenses.filter(e => {
           const d = new Date(e.date)
           return d.getFullYear() === year && (month === 0 || d.getMonth() + 1 === month)
         })} loadExpenses={loadExpenses} fmt={fmt} fmtDate={fmtDate} notify={notify} year={year} month={month} monthsFull={monthsFull} />}
@@ -882,14 +882,14 @@ export default function App() {
         {/* ══════════════════════════════════════
             TAB 5: ΚΑΡΤΕΛΕΣ
         ══════════════════════════════════════ */}
-        {tab === 6 && <KartelesTab invoices={[...income, ...expenses]} payments={yearPayments} byCounterparty={(t) => byCounterparty(t, yearPayments, [...income, ...expenses])} fmt={fmt} fmtDate={fmtDate} year={year} month={month} monthsFull={monthsFull} />}
+        {tab === 5 && <KartelesTab invoices={[...income, ...expenses]} payments={yearPayments} byCounterparty={(t) => byCounterparty(t, yearPayments, [...income, ...expenses])} fmt={fmt} fmtDate={fmtDate} year={year} month={month} monthsFull={monthsFull} />}
 
         {/* ══════════════════════════════════════
             TAB 4: ΥΠΟΛΟΙΠΑ
         ══════════════════════════════════════ */}
-        {tab === 8 && <ReportsTab income={income} expenses={expenses} yearPayments={yearPayments} generalExpenses={generalExpenses.filter(e => { const d=new Date(e.date); return d.getFullYear()===year&&(month===0||d.getMonth()+1===month) })} fmt={fmt} fmtDate={fmtDate} year={year} month={month} monthsFull={monthsFull} />}
+        {tab === 7 && <ReportsTab income={income} expenses={expenses} yearPayments={yearPayments} generalExpenses={generalExpenses.filter(e => { const d=new Date(e.date); return d.getFullYear()===year&&(month===0||d.getMonth()+1===month) })} fmt={fmt} fmtDate={fmtDate} year={year} month={month} monthsFull={monthsFull} />}
 
-        {tab === 7 && (
+        {tab === 6 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 22 }}>
             {[{ type: 'income', label: 'Πελάτες — Εισπρακτέα', color: '#4ade80', total: totalIncome },
               { type: 'expense', label: 'Προμηθευτές — Πληρωτέα', color: '#f87171', total: totalExpense }].map(({ type, label, color, total }) => (
@@ -2380,17 +2380,17 @@ function DashboardTab({ income, expenses, yearPayments, generalExpenses, invoice
 
       {/* Κύρια σύνοψη */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
-        <Card label="Έσοδα" value={fmt(totalIncome)} sub={`${income.length} παραστατικά`} color="#4ade80" onClick={() => setTab(2)} />
-        <Card label="Έξοδα (τιμολόγια)" value={fmt(totalExpense)} sub={`${expenses.length} παραστατικά`} color="#f87171" onClick={() => setTab(3)} />
-        <Card label="Γενικά Έξοδα" value={fmt(totalGeneral)} sub={`${generalExpenses.length} εγγραφές`} color="#fbbf24" onClick={() => setTab(5)} />
+        <Card label="Έσοδα" value={fmt(totalIncome)} sub={`${income.length} παραστατικά`} color="#4ade80" onClick={() => setTab(1)} />
+        <Card label="Έξοδα (τιμολόγια)" value={fmt(totalExpense)} sub={`${expenses.length} παραστατικά`} color="#f87171" onClick={() => setTab(2)} />
+        <Card label="Γενικά Έξοδα" value={fmt(totalGeneral)} sub={`${generalExpenses.length} εγγραφές`} color="#fbbf24" onClick={() => setTab(3)} />
         <Card label="Αποτέλεσμα Περιόδου" value={fmt(netResult)} sub="Έσοδα − Έξοδα − Γεν.Έξοδα" color={netResult >= 0 ? '#4ade80' : '#f87171'} bg={netResult >= 0 ? '#0a2215' : '#2a0f0f'} />
       </div>
 
       {/* Εισπρακτέα / Πληρωτέα */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
-        <Card label="Εισπράχθηκαν" value={fmt(totalReceipts)} sub={`από σύνολο ${fmt(totalIncome)}`} color="#4ade80" onClick={() => setTab(4)} />
+        <Card label="Εισπράχθηκαν" value={fmt(totalReceipts)} sub={`από σύνολο ${fmt(totalIncome)}`} color="#4ade80" onClick={() => setTab(3)} />
         <Card label="Εισπρακτέα (υπόλοιπο)" value={fmt(Math.max(0, pendingIn))} sub={pendingIn > 0 ? "Αναμένεται είσπραξη" : "Όλα εισπράχθηκαν"} color={pendingIn > 0 ? '#fbbf24' : '#4ade80'} />
-        <Card label="Πληρώθηκαν" value={fmt(totalPaid)} sub={`από σύνολο ${fmt(totalExpense)}`} color="#f87171" onClick={() => setTab(4)} />
+        <Card label="Πληρώθηκαν" value={fmt(totalPaid)} sub={`από σύνολο ${fmt(totalExpense)}`} color="#f87171" onClick={() => setTab(3)} />
         <Card label="Πληρωτέα (υπόλοιπο)" value={fmt(Math.max(0, pendingOut))} sub={pendingOut > 0 ? "Αναμένεται πληρωμή" : "Όλα πληρώθηκαν"} color={pendingOut > 0 ? '#fbbf24' : '#4ade80'} />
       </div>
 
@@ -2511,11 +2511,11 @@ function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expand
             style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '9px 12px', fontSize: 13, width: '100%', outline: 'none', fontFamily: 'inherit' }} />
         </div>
         <button style={{ background: 'linear-gradient(135deg,#4f8ef7,#7c5cf7)', color: '#fff', padding: '10px 18px', borderRadius: 8, fontWeight: 600, fontSize: 13, border: 'none', cursor: 'pointer' }}
-          onClick={() => { setEditForm({ type: tab === 2 ? 'income' : 'expense', date: new Date().toISOString().split('T')[0], items: [] }); setTab(1) }}>
+          onClick={() => { setEditForm({ type: tab === 1 ? 'income' : 'expense', date: new Date().toISOString().split('T')[0], items: [] }); setTab(1) }}>
           + Χειροκίνητη
         </button>
         <button style={{ background: 'transparent', color: '#9ca3af', border: '1px solid #2a3040', padding: '9px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}
-          onClick={() => { setEditForm(null); setTab(1) }}>
+          onClick={() => { setEditForm(null); setTab(0) }}>
           + Σάρωση
         </button>
       </div>
