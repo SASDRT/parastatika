@@ -858,7 +858,7 @@ export default function App() {
             filtered={filtered} expandedId={expandedId} setExpandedId={setExpandedId}
             deleteInvoice={deleteInvoice} setTab={setTab} setEditForm={setEditForm}
             fmt={fmt} fmtDate={fmtDate} loading={loading}
-            tab={tab} copyInvoice={copyInvoice} userRole={userRole}
+            tab={tab} copyInvoice={copyInvoice} userRole={userRole} loadInvoices={loadInvoices}
             generalExpenses={tab === 3 ? generalExpenses.filter(e => { const d=new Date(e.date); return d.getFullYear()===year&&(month===0||d.getMonth()+1===month) }) : []}
           />
         )}
@@ -2526,7 +2526,7 @@ function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expand
             {sortedList.map(inv => (
               <div key={inv.id} style={{ borderBottom: '1px solid #161824' }}>
                 <div onClick={() => setExpandedId(expandedId === inv.id ? null : inv.id)}
-                  style={{ display: 'grid', gridTemplateColumns: '95px 100px 140px 1fr 115px 95px 95px 115px 70px', gap: 6, padding: '12px 16px', cursor: 'pointer', alignItems: 'center' }}
+                  style={{ display: 'grid', gridTemplateColumns: '95px 100px 140px 1fr 115px 95px 95px 115px 70px', gap: 6, padding: '12px 16px', cursor: 'pointer', alignItems: 'center', background: inv.notes?.includes('⚠️ ΛΑΘΟΣ') ? '#1a0a0a' : '' }}
                   onMouseEnter={e => e.currentTarget.style.background = '#1a1d2b'}
                   onMouseLeave={e => e.currentTarget.style.background = ''}>
                   <span style={{ color: '#9ca3af', fontSize: 11, fontFamily: 'monospace' }}>{fmtDate(inv.date)}</span>
@@ -2555,6 +2555,29 @@ function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expand
                     {userRole !== 'employee' && <button style={{ background: 'transparent', color: '#4f8ef7', border: 'none', padding: '4px 6px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}
                       title="Αντίγραφο"
                       onClick={e => { e.stopPropagation(); copyInvoice(inv) }}>⎘</button>}
+                    {userRole === 'employee' && (
+                      <button style={{ background: inv.notes?.includes('⚠️ ΛΑΘΟΣ') ? '#2a0f0f' : 'transparent', color: inv.notes?.includes('⚠️ ΛΑΘΟΣ') ? '#f87171' : '#fbbf24', border: `1px solid ${inv.notes?.includes('⚠️ ΛAΘΟΣ') ? '#f87171' : '#fbbf2444'}`, padding: '3px 7px', borderRadius: 6, fontSize: 10, cursor: 'pointer', fontWeight: 600 }}
+                        title="Αναφορά λάθους"
+                        onClick={async e => {
+                          e.stopPropagation()
+                          if (inv.notes?.includes('⚠️ ΛΑΘΟΣ')) {
+                            // Ακύρωση αναφοράς
+                            if (!confirm('Να ακυρωθεί η αναφορά λάθους;')) return
+                            const newNotes = (inv.notes || '').replace(' | ⚠️ ΛΑΘΟΣ - ΠΡΟΣ ΔΙΑΓΡΑΦΗ', '').replace('⚠️ ΛΑΘΟΣ - ΠΡΟΣ ΔΙΑΓΡΑΦΗ', '').trim()
+                            await supabase.from('invoices').update({ notes: newNotes || null }).eq('id', inv.id)
+                            await loadInvoices()
+                            notify('Η αναφορά λάθους ακυρώθηκε.')
+                          } else {
+                            if (!confirm('Να αναφερθεί ως λάθος;')) return
+                            const newNotes = (inv.notes ? inv.notes + ' | ' : '') + '⚠️ ΛΑΘΟΣ - ΠΡΟΣ ΔΙΑΓΡΑΦΗ'
+                            await supabase.from('invoices').update({ notes: newNotes }).eq('id', inv.id)
+                            await loadInvoices()
+                            notify('Η αναφορά λάθους καταχωρήθηκε! Ο διαχειριστής θα το διαγράψει.')
+                          }
+                        }}>
+                        {inv.notes?.includes('⚠️ ΛΑΘΟΣ') ? '⚠️ Ακύρωση' : '! Λάθος'}
+                      </button>
+                    )}
                     {userRole !== 'employee' && <button style={{ background: 'transparent', color: '#f87171', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}
                       onClick={e => { e.stopPropagation(); deleteInvoice(inv.id) }}>✕</button>}
                   </div>
