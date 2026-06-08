@@ -35,7 +35,7 @@ function useSortable(data, defaultKey = 'date', defaultDir = 'desc') {
 
 const fmt = (n) => new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' }).format(n || 0)
 const fmtDate = (d) => { if (!d) return '—'; try { return new Date(d).toLocaleDateString('el-GR') } catch { return d } }
-const ALL_TABS = ['Σάρωση', 'Έσοδα', 'Έξοδα', 'Πληρωμές', 'Γεν. Έξοδα', 'Καρτέλες', 'Υπόλοιπα', 'Αναφορές']
+const ALL_TABS = ['Dashboard', 'Σάρωση', 'Έσοδα', 'Έξοδα', 'Πληρωμές', 'Γεν. Έξοδα', 'Καρτέλες', 'Υπόλοιπα', 'Αναφορές']
 const EMPLOYEE_TABS = ['Σάρωση', 'Έσοδα', 'Έξοδα', 'Γεν. Έξοδα']
 
 const C = {
@@ -64,16 +64,12 @@ const C = {
 export default function App() {
   const [session, setSession] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
-  const [roleLoading, setRoleLoading] = useState(true)
-  const [showDashboard, setShowDashboard] = useState(false)
   const [userRole, setUserRole] = useState(null)
   const [loginEmail, setLoginEmail] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
   const [loginError, setLoginError] = useState('')
   const [loginLoading, setLoginLoading] = useState(false)
-  const tabRef = React.useRef(0)
-  const [tab, setTabState] = useState(0)
-  const setTab = (t) => { tabRef.current = t; setTabState(t) }
+  const [tab, setTab] = useState(0)
   const [invoices, setInvoices] = useState([])
   const [loading, setLoading] = useState(true)
   const [scanning, setScanning] = useState(false)
@@ -108,17 +104,19 @@ export default function App() {
       loadInvoices(); loadPayments(); loadExpenses()
       // Load user role
       supabase.from('user_roles').select('role,name').eq('user_id', session.user.id).single()
-        .then(({ data }) => setUserRole(data?.role || 'admin'))
+        .then(({ data }) => {
+          const role = data?.role || 'admin'
+          setUserRole(role)
+          if (role === 'employee') setTab(1)
+        })
     }
   }, [session])
 
   const loadInvoices = async () => {
     setLoading(true)
-    const savedTab = tabRef.current
     const { data, error } = await supabase.from('invoices').select('*').order('date', { ascending: false })
     if (!error) setInvoices(data || [])
     setLoading(false)
-    if (tabRef.current !== savedTab) { tabRef.current = savedTab; setTabState(savedTab) }
   }
 
   const loadPayments = async () => {
@@ -335,7 +333,7 @@ export default function App() {
       notify('Παραστατικό αποθηκεύτηκε επιτυχώς!')
       setEditForm(null); setPreviewImg(null)
       await loadInvoices()
-      setTab(row.type === 'income' ? 1 : 2)
+      setTab(row.type === 'income' ? 2 : 3)
     }
     setSaving(false)
   }
@@ -356,7 +354,7 @@ export default function App() {
     copy.mark = null
     copy.uid = null
     setEditForm(copy)
-    setTab(0)
+    setTab(1)
     notify('Αντίγραφο έτοιμο — επεξεργάσου και αποθήκευσε!')
   }
 
@@ -455,7 +453,7 @@ export default function App() {
     </div>
   )
 
-  if (authLoading || (session && roleLoading)) return (
+  if (authLoading) return (
     <div style={{ minHeight: '100vh', background: '#0a0c13', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ color: '#4f8ef7', fontSize: 14 }}>Φόρτωση...</div>
     </div>
@@ -502,7 +500,6 @@ export default function App() {
             <span>Παραστατικά</span>
           </div>
           <div style={{ display: 'flex', gap: 6 }}>
-            {userRole === 'admin' && <button onClick={() => setShowDashboard(!showDashboard)} style={{ background: showDashboard ? '#0a1e2e' : 'transparent', color: showDashboard ? '#4f8ef7' : '#5a6070', border: '1px solid #2a3040', padding: '5px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>Dashboard</button>}
             <button onClick={handleBackup} style={{ background: 'transparent', color: '#5a6070', border: '1px solid #2a3040', padding: '5px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>Backup</button>
             <button onClick={handleExportExcel} style={{ background: 'transparent', color: '#5a6070', border: '1px solid #2a3040', padding: '5px 12px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>Export CSV</button>
             <div style={{ fontSize: 11, color: '#5a6070', padding: '4px 10px', background: '#0a0c13', borderRadius: 6, border: '1px solid #1e2232' }}>
@@ -557,6 +554,7 @@ export default function App() {
       {/* TABS */}
       <div style={C.tabBar}>
         {ALL_TABS.map((t,i) => {
+          if (t === 'Dashboard' && userRole !== 'admin') return null
           if (userRole === 'employee' && !EMPLOYEE_TABS.includes(t)) return null
           return <button key={t} onClick={() => setTab(i)} style={C.tab(tab === i)}>{t}</button>
         })}
@@ -574,7 +572,7 @@ export default function App() {
         {/* ══════════════════════════════════════
             TAB 0: DASHBOARD
         ══════════════════════════════════════ */}
-        {showDashboard && userRole === 'admin' && (
+        {tab === 0 && userRole === 'admin' && (
           <DashboardTab
             income={income} expenses={expenses}
             yearPayments={yearPayments}
@@ -588,7 +586,7 @@ export default function App() {
         {/* ══════════════════════════════════════
             TAB 1: ΣΑΡΩΣΗ
         ══════════════════════════════════════ */}
-        {tab === 0 && (
+        {tab === 1 && (
           <div style={{ display: 'grid', gridTemplateColumns: editForm ? '380px 1fr' : '1fr', gap: 20 }}>
             {/* Αριστερή στήλη */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
@@ -857,16 +855,16 @@ export default function App() {
         {/* ══════════════════════════════════════
             TAB 2 & 3: ΛΙΣΤΑ ΠΑΡΑΣΤΑΤΙΚΩΝ
         ══════════════════════════════════════ */}
-        {(tab === 1 || tab === 2) && (
+        {(tab === 2 || tab === 3) && (
           <InvoiceList
             list={tab === 2 ? income : expenses}
             color={tab === 2 ? '#4ade80' : '#f87171'}
-            title={tab === 1 ? 'Έσοδα' : 'Έξοδα'}
+            title={tab === 2 ? 'Έσοδα' : 'Έξοδα'}
             searchQ={searchQ} setSearchQ={setSearchQ}
             filtered={filtered} expandedId={expandedId} setExpandedId={setExpandedId}
             deleteInvoice={deleteInvoice} setTab={setTab} setEditForm={setEditForm}
             fmt={fmt} fmtDate={fmtDate} loading={loading}
-            tab={tab} copyInvoice={copyInvoice} userRole={userRole} loadInvoices={loadInvoices}
+            tab={tab} copyInvoice={copyInvoice} userRole={userRole} loadInvoices={loadInvoices} loadInvoices={loadInvoices}
             generalExpenses={tab === 3 ? generalExpenses.filter(e => { const d=new Date(e.date); return d.getFullYear()===year&&(month===0||d.getMonth()+1===month) }) : []}
           />
         )}
@@ -874,12 +872,12 @@ export default function App() {
         {/* ══════════════════════════════════════
             TAB 3: ΠΛΗΡΩΜΕΣ
         ══════════════════════════════════════ */}
-        {tab === 3 && <PaymentsTab payments={yearPayments} invoices={invoices} loadPayments={loadPayments} fmt={fmt} fmtDate={fmtDate} notify={notify} year={year} month={month} monthsFull={monthsFull} />}
+        {tab === 4 && <PaymentsTab payments={yearPayments} invoices={invoices} loadPayments={loadPayments} fmt={fmt} fmtDate={fmtDate} notify={notify} year={year} month={month} monthsFull={monthsFull} />}
 
         {/* ══════════════════════════════════════
             TAB 4: ΓΕΝΙΚΑ ΕΞΟΔΑ
         ══════════════════════════════════════ */}
-        {tab === 4 && <GeneralExpensesTab expenses={generalExpenses.filter(e => {
+        {tab === 5 && <GeneralExpensesTab expenses={generalExpenses.filter(e => {
           const d = new Date(e.date)
           return d.getFullYear() === year && (month === 0 || d.getMonth() + 1 === month)
         })} loadExpenses={loadExpenses} fmt={fmt} fmtDate={fmtDate} notify={notify} year={year} month={month} monthsFull={monthsFull} />}
@@ -887,14 +885,14 @@ export default function App() {
         {/* ══════════════════════════════════════
             TAB 5: ΚΑΡΤΕΛΕΣ
         ══════════════════════════════════════ */}
-        {tab === 5 && <KartelesTab invoices={[...income, ...expenses]} payments={yearPayments} byCounterparty={(t) => byCounterparty(t, yearPayments, [...income, ...expenses])} fmt={fmt} fmtDate={fmtDate} year={year} month={month} monthsFull={monthsFull} />}
+        {tab === 6 && <KartelesTab invoices={[...income, ...expenses]} payments={yearPayments} byCounterparty={(t) => byCounterparty(t, yearPayments, [...income, ...expenses])} fmt={fmt} fmtDate={fmtDate} year={year} month={month} monthsFull={monthsFull} />}
 
         {/* ══════════════════════════════════════
             TAB 4: ΥΠΟΛΟΙΠΑ
         ══════════════════════════════════════ */}
-        {tab === 7 && <ReportsTab income={income} expenses={expenses} yearPayments={yearPayments} generalExpenses={generalExpenses.filter(e => { const d=new Date(e.date); return d.getFullYear()===year&&(month===0||d.getMonth()+1===month) })} fmt={fmt} fmtDate={fmtDate} year={year} month={month} monthsFull={monthsFull} />}
+        {tab === 8 && <ReportsTab income={income} expenses={expenses} yearPayments={yearPayments} generalExpenses={generalExpenses.filter(e => { const d=new Date(e.date); return d.getFullYear()===year&&(month===0||d.getMonth()+1===month) })} fmt={fmt} fmtDate={fmtDate} year={year} month={month} monthsFull={monthsFull} />}
 
-        {tab === 6 && (
+        {tab === 7 && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 22 }}>
             {[{ type: 'income', label: 'Πελάτες — Εισπρακτέα', color: '#4ade80', total: totalIncome },
               { type: 'expense', label: 'Προμηθευτές — Πληρωτέα', color: '#f87171', total: totalExpense }].map(({ type, label, color, total }) => (
@@ -2385,17 +2383,17 @@ function DashboardTab({ income, expenses, yearPayments, generalExpenses, invoice
 
       {/* Κύρια σύνοψη */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
-        <Card label="Έσοδα" value={fmt(totalIncome)} sub={`${income.length} παραστατικά`} color="#4ade80" onClick={() => setTab(1)} />
-        <Card label="Έξοδα (τιμολόγια)" value={fmt(totalExpense)} sub={`${expenses.length} παραστατικά`} color="#f87171" onClick={() => setTab(2)} />
-        <Card label="Γενικά Έξοδα" value={fmt(totalGeneral)} sub={`${generalExpenses.length} εγγραφές`} color="#fbbf24" onClick={() => setTab(3)} />
+        <Card label="Έσοδα" value={fmt(totalIncome)} sub={`${income.length} παραστατικά`} color="#4ade80" onClick={() => setTab(2)} />
+        <Card label="Έξοδα (τιμολόγια)" value={fmt(totalExpense)} sub={`${expenses.length} παραστατικά`} color="#f87171" onClick={() => setTab(3)} />
+        <Card label="Γενικά Έξοδα" value={fmt(totalGeneral)} sub={`${generalExpenses.length} εγγραφές`} color="#fbbf24" onClick={() => setTab(5)} />
         <Card label="Αποτέλεσμα Περιόδου" value={fmt(netResult)} sub="Έσοδα − Έξοδα − Γεν.Έξοδα" color={netResult >= 0 ? '#4ade80' : '#f87171'} bg={netResult >= 0 ? '#0a2215' : '#2a0f0f'} />
       </div>
 
       {/* Εισπρακτέα / Πληρωτέα */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
-        <Card label="Εισπράχθηκαν" value={fmt(totalReceipts)} sub={`από σύνολο ${fmt(totalIncome)}`} color="#4ade80" onClick={() => setTab(3)} />
+        <Card label="Εισπράχθηκαν" value={fmt(totalReceipts)} sub={`από σύνολο ${fmt(totalIncome)}`} color="#4ade80" onClick={() => setTab(4)} />
         <Card label="Εισπρακτέα (υπόλοιπο)" value={fmt(Math.max(0, pendingIn))} sub={pendingIn > 0 ? "Αναμένεται είσπραξη" : "Όλα εισπράχθηκαν"} color={pendingIn > 0 ? '#fbbf24' : '#4ade80'} />
-        <Card label="Πληρώθηκαν" value={fmt(totalPaid)} sub={`από σύνολο ${fmt(totalExpense)}`} color="#f87171" onClick={() => setTab(3)} />
+        <Card label="Πληρώθηκαν" value={fmt(totalPaid)} sub={`από σύνολο ${fmt(totalExpense)}`} color="#f87171" onClick={() => setTab(4)} />
         <Card label="Πληρωτέα (υπόλοιπο)" value={fmt(Math.max(0, pendingOut))} sub={pendingOut > 0 ? "Αναμένεται πληρωμή" : "Όλα πληρώθηκαν"} color={pendingOut > 0 ? '#fbbf24' : '#4ade80'} />
       </div>
 
@@ -2516,11 +2514,11 @@ function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expand
             style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '9px 12px', fontSize: 13, width: '100%', outline: 'none', fontFamily: 'inherit' }} />
         </div>
         <button style={{ background: 'linear-gradient(135deg,#4f8ef7,#7c5cf7)', color: '#fff', padding: '10px 18px', borderRadius: 8, fontWeight: 600, fontSize: 13, border: 'none', cursor: 'pointer' }}
-          onClick={() => { setEditForm({ type: tab === 1 ? 'income' : 'expense', date: new Date().toISOString().split('T')[0], items: [] }); setTab(1) }}>
+          onClick={() => { setEditForm({ type: tab === 2 ? 'income' : 'expense', date: new Date().toISOString().split('T')[0], items: [] }); setTab(1) }}>
           + Χειροκίνητη
         </button>
         <button style={{ background: 'transparent', color: '#9ca3af', border: '1px solid #2a3040', padding: '9px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}
-          onClick={() => { setEditForm(null); setTab(0) }}>
+          onClick={() => { setEditForm(null); setTab(1) }}>
           + Σάρωση
         </button>
       </div>
@@ -2585,14 +2583,17 @@ function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expand
                         onClick={async e => {
                           e.stopPropagation()
                           if (inv.notes?.includes('⚠️ ΛΑΘΟΣ')) {
+                            // Ακύρωση αναφοράς
+                            if (!confirm('Να ακυρωθεί η αναφορά λάθους;')) return
                             const newNotes = (inv.notes || '').replace(' | ⚠️ ΛΑΘΟΣ - ΠΡΟΣ ΔΙΑΓΡΑΦΗ', '').replace('⚠️ ΛΑΘΟΣ - ΠΡΟΣ ΔΙΑΓΡΑΦΗ', '').trim()
                             await supabase.from('invoices').update({ notes: newNotes || null }).eq('id', inv.id)
-                            if (loadInvoices) await loadInvoices()
+                            await loadInvoices()
                             notify('Η αναφορά λάθους ακυρώθηκε.')
                           } else {
+                            if (!confirm('Να αναφερθεί ως λάθος;')) return
                             const newNotes = (inv.notes ? inv.notes + ' | ' : '') + '⚠️ ΛΑΘΟΣ - ΠΡΟΣ ΔΙΑΓΡΑΦΗ'
                             await supabase.from('invoices').update({ notes: newNotes }).eq('id', inv.id)
-                            if (loadInvoices) await loadInvoices()
+                            await loadInvoices()
                             notify('Η αναφορά λάθους καταχωρήθηκε! Ο διαχειριστής θα το διαγράψει.')
                           }
                         }}>
