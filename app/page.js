@@ -69,7 +69,7 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState('')
   const [loginError, setLoginError] = useState('')
   const [loginLoading, setLoginLoading] = useState(false)
-  const [tab, setTab] = useState(0)
+  const [tab, setTab] = useState(1)
   const [invoices, setInvoices] = useState([])
   const [loading, setLoading] = useState(true)
   const [scanning, setScanning] = useState(false)
