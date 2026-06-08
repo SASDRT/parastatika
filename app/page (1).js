@@ -108,11 +108,12 @@ export default function App() {
     }
   }, [session])
 
-  const loadInvoices = async () => {
+  const loadInvoices = async (keepTab) => {
     setLoading(true)
     const { data, error } = await supabase.from('invoices').select('*').order('date', { ascending: false })
     if (!error) setInvoices(data || [])
     setLoading(false)
+    if (keepTab !== undefined) setTab(keepTab)
   }
 
   const loadPayments = async () => {
