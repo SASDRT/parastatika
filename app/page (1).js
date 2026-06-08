@@ -858,7 +858,7 @@ export default function App() {
             filtered={filtered} expandedId={expandedId} setExpandedId={setExpandedId}
             deleteInvoice={deleteInvoice} setTab={setTab} setEditForm={setEditForm}
             fmt={fmt} fmtDate={fmtDate} loading={loading}
-            tab={tab} copyInvoice={copyInvoice} userRole={userRole} loadInvoices={loadInvoices}
+            tab={tab} copyInvoice={copyInvoice} userRole={userRole} loadInvoices={loadInvoices} loadInvoices={loadInvoices}
             generalExpenses={tab === 3 ? generalExpenses.filter(e => { const d=new Date(e.date); return d.getFullYear()===year&&(month===0||d.getMonth()+1===month) }) : []}
           />
         )}
@@ -2477,7 +2477,7 @@ function DashboardTab({ income, expenses, yearPayments, generalExpenses, invoice
 /* ═══════════════════════════════════════
    INVOICE LIST COMPONENT (με sorting)
 ═══════════════════════════════════════ */
-function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expandedId, setExpandedId, deleteInvoice, setTab, setEditForm, fmt, fmtDate, loading, tab, copyInvoice, userRole, generalExpenses = [] }) {
+function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expandedId, setExpandedId, deleteInvoice, setTab, setEditForm, fmt, fmtDate, loading, tab, copyInvoice, userRole, generalExpenses = [], loadInvoices }) {
   // Μετατροπή generalExpenses σε invoice-like objects
   const genAsInvoices = generalExpenses.map(e => ({
     ...e,
