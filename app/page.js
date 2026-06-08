@@ -102,9 +102,13 @@ export default function App() {
   useEffect(() => {
     if (session) {
       loadInvoices(); loadPayments(); loadExpenses()
-      // Load user role
+      // Load user role and set default tab
       supabase.from('user_roles').select('role,name').eq('user_id', session.user.id).single()
-        .then(({ data }) => setUserRole(data?.role || 'admin'))
+        .then(({ data }) => {
+          const role = data?.role || 'admin'
+          setUserRole(role)
+          if (role === 'employee') setTab(1) // Σάρωση για employees
+        })
     }
   }, [session])
 
