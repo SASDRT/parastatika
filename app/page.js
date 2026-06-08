@@ -104,7 +104,7 @@ export default function App() {
       loadInvoices(); loadPayments(); loadExpenses()
       // Load user role
       supabase.from('user_roles').select('role,name').eq('user_id', session.user.id).single()
-        .then(({ data }) => setUserRole(data?.role || 'admin'))
+        .then(({ data }) => setUserRole(data?.role || 'employee'))
     }
   }, [session])
 
