@@ -2577,14 +2577,11 @@ function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expand
                         onClick={async e => {
                           e.stopPropagation()
                           if (inv.notes?.includes('⚠️ ΛΑΘΟΣ')) {
-                            // Ακύρωση αναφοράς
-                            if (!confirm('Να ακυρωθεί η αναφορά λάθους;')) return
                             const newNotes = (inv.notes || '').replace(' | ⚠️ ΛΑΘΟΣ - ΠΡΟΣ ΔΙΑΓΡΑΦΗ', '').replace('⚠️ ΛΑΘΟΣ - ΠΡΟΣ ΔΙΑΓΡΑΦΗ', '').trim()
                             await supabase.from('invoices').update({ notes: newNotes || null }).eq('id', inv.id)
                             if (loadInvoices) await loadInvoices()
                             notify('Η αναφορά λάθους ακυρώθηκε.')
                           } else {
-                            if (!confirm('Να αναφερθεί ως λάθος;')) return
                             const newNotes = (inv.notes ? inv.notes + ' | ' : '') + '⚠️ ΛΑΘΟΣ - ΠΡΟΣ ΔΙΑΓΡΑΦΗ'
                             await supabase.from('invoices').update({ notes: newNotes }).eq('id', inv.id)
                             if (loadInvoices) await loadInvoices()
