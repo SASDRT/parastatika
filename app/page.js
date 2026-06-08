@@ -35,7 +35,7 @@ function useSortable(data, defaultKey = 'date', defaultDir = 'desc') {
 
 const fmt = (n) => new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' }).format(n || 0)
 const fmtDate = (d) => { if (!d) return '—'; try { return new Date(d).toLocaleDateString('el-GR') } catch { return d } }
-const ALL_TABS = ['Dashboard', 'Σάρωση', 'Έσοδα', 'Έξοδα', 'Πληρωμές', 'Γεν. Έξοδα', 'Καρτέλες', 'Υπόλοιπα', 'Αναφορές']
+const ALL_TABS = ['Σάρωση', 'Έσοδα', 'Έξοδα', 'Πληρωμές', 'Γεν. Έξοδα', 'Καρτέλες', 'Υπόλοιπα', 'Αναφορές', 'Dashboard']
 const EMPLOYEE_TABS = ['Σάρωση', 'Έσοδα', 'Έξοδα', 'Γεν. Έξοδα']
 
 const C = {
@@ -104,7 +104,7 @@ export default function App() {
       loadInvoices(); loadPayments(); loadExpenses()
       // Load user role
       supabase.from('user_roles').select('role,name').eq('user_id', session.user.id).single()
-        .then(({ data }) => setUserRole(data?.role || 'admin'))
+        .then(({ data }) => setUserRole(data?.role || 'employee'))
     }
   }, [session])
 
@@ -2581,13 +2581,13 @@ function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expand
                             if (!confirm('Να ακυρωθεί η αναφορά λάθους;')) return
                             const newNotes = (inv.notes || '').replace(' | ⚠️ ΛΑΘΟΣ - ΠΡΟΣ ΔΙΑΓΡΑΦΗ', '').replace('⚠️ ΛΑΘΟΣ - ΠΡΟΣ ΔΙΑΓΡΑΦΗ', '').trim()
                             await supabase.from('invoices').update({ notes: newNotes || null }).eq('id', inv.id)
-                            window.location.reload()
+                            await loadInvoices()
                             notify('Η αναφορά λάθους ακυρώθηκε.')
                           } else {
                             if (!confirm('Να αναφερθεί ως λάθος;')) return
                             const newNotes = (inv.notes ? inv.notes + ' | ' : '') + '⚠️ ΛΑΘΟΣ - ΠΡΟΣ ΔΙΑΓΡΑΦΗ'
                             await supabase.from('invoices').update({ notes: newNotes }).eq('id', inv.id)
-                            window.location.reload()
+                            await loadInvoices()
                             notify('Η αναφορά λάθους καταχωρήθηκε! Ο διαχειριστής θα το διαγράψει.')
                           }
                         }}>
