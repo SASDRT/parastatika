@@ -137,6 +137,8 @@ export default function App() {
   const handleLogout = async () => {
     await supabase.auth.signOut()
     setSession(null)
+    setTab(1)
+    setUserRole(null)
   }
 
   const handleBackup = async () => {
