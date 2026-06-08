@@ -35,7 +35,7 @@ function useSortable(data, defaultKey = 'date', defaultDir = 'desc') {
 
 const fmt = (n) => new Intl.NumberFormat('el-GR', { style: 'currency', currency: 'EUR' }).format(n || 0)
 const fmtDate = (d) => { if (!d) return '—'; try { return new Date(d).toLocaleDateString('el-GR') } catch { return d } }
-const ALL_TABS = ['Σάρωση', 'Έσοδα', 'Έξοδα', 'Πληρωμές', 'Γεν. Έξοδα', 'Καρτέλες', 'Υπόλοιπα', 'Αναφορές', 'Dashboard']
+const ALL_TABS = ['Dashboard', 'Σάρωση', 'Έσοδα', 'Έξοδα', 'Πληρωμές', 'Γεν. Έξοδα', 'Καρτέλες', 'Υπόλοιπα', 'Αναφορές']
 const EMPLOYEE_TABS = ['Σάρωση', 'Έσοδα', 'Έξοδα', 'Γεν. Έξοδα']
 
 const C = {
@@ -104,7 +104,7 @@ export default function App() {
       loadInvoices(); loadPayments(); loadExpenses()
       // Load user role
       supabase.from('user_roles').select('role,name').eq('user_id', session.user.id).single()
-        .then(({ data }) => setUserRole(data?.role || 'employee'))
+        .then(({ data }) => setUserRole(data?.role || 'admin'))
     }
   }, [session])
 
