@@ -263,16 +263,18 @@ export default function App() {
     if (!editForm) return
     setSaving(true)
 
-    // Έλεγχος διπλοεγγραφής
+    // Έλεγχος διπλοεγγραφής (αριθμός + σειρά + ΑΦΜ εκδότη)
     if (editForm.number && editForm.issuer_afm) {
-      const { data: existing } = await supabase.from('invoices')
+      let query = supabase.from('invoices')
         .select('id')
         .eq('number', editForm.number)
         .eq('issuer_afm', editForm.issuer_afm)
         .eq('type', editForm.type || 'expense')
-        .limit(1)
+      if (editForm.series) query = query.eq('series', editForm.series)
+      if (editForm.invoice_type) query = query.eq('invoice_type', editForm.invoice_type)
+      const { data: existing } = await query.limit(1)
       if (existing && existing.length > 0) {
-        notify('⚠️ Το παραστατικό αυτό έχει ήδη καταχωρηθεί! (ίδιος αριθμός και ΑΦΜ εκδότη)', 'error')
+        notify('Το παραστατικό αυτό έχει ήδη καταχωρηθεί! (ίδιος αριθμός, σειρά και τύπος)', 'error')
         setSaving(false)
         return
       }
@@ -364,13 +366,15 @@ export default function App() {
   })
   const totalIncome = income.reduce((s, i) => s + (i.total || 0), 0)
   const totalExpense = expenses.reduce((s, i) => s + (i.total || 0), 0)
+  const totalGeneralFiltered = generalExpenses.filter(e => { const d=new Date(e.date); return d.getFullYear()===year&&(month===0||d.getMonth()+1===month) }).reduce((s,e)=>s+(e.amount||0),0)
+  const totalExpenseAll = totalExpense + totalGeneralFiltered
   const yearPayments = payments.filter(p => {
     const d = new Date(p.date)
     return d.getFullYear() === year && (month === 0 || d.getMonth() + 1 === month)
   })
   const totalReceipts = yearPayments.filter(p => p.type === 'receipt').reduce((s, p) => s + (p.amount || 0), 0)
   const totalPaid = yearPayments.filter(p => p.type === 'payment').reduce((s, p) => s + (p.amount || 0), 0)
-  const balance = totalIncome - totalExpense
+  const balance = totalIncome - totalExpenseAll
 
   const filtered = (list) => {
     if (!searchQ) return list
@@ -533,7 +537,7 @@ export default function App() {
                 </div>
               )}
             </div>
-            {userRole !== 'employee' && [['ΕΣΟΔΑ', totalIncome, '#4ade80', '#0a2215'], ['ΕΞΟΔΑ', totalExpense, '#f87171', '#2a0f0f'], ['ΥΠΟΛΟΙΠΟ', balance, balance >= 0 ? '#60b4f7' : '#f87171', balance >= 0 ? '#0a1e2e' : '#2a0f0f']].map(([l, v, c, bg]) => (
+            {userRole !== 'employee' && [['ΕΣΟΔΑ', totalIncome, '#4ade80', '#0a2215'], ['ΕΞΟΔΑ', totalExpenseAll, '#f87171', '#2a0f0f'], ['ΥΠΟΛΟΙΠΟ', balance, balance >= 0 ? '#60b4f7' : '#f87171', balance >= 0 ? '#0a1e2e' : '#2a0f0f']].map(([l, v, c, bg]) => (
               <div key={l} style={{ textAlign: 'center', padding: '4px 12px', borderRadius: 7, background: bg, border: `1px solid ${c}22` }}>
                 <div style={{ fontSize: 9, color: c, fontWeight: 700, letterSpacing: 1 }}>{l}</div>
                 <div style={{ fontSize: 13, color: c, fontFamily: 'monospace', fontWeight: 700 }}>{fmt(v)}</div>
@@ -855,6 +859,7 @@ export default function App() {
             deleteInvoice={deleteInvoice} setTab={setTab} setEditForm={setEditForm}
             fmt={fmt} fmtDate={fmtDate} loading={loading}
             tab={tab} copyInvoice={copyInvoice} userRole={userRole}
+            generalExpenses={tab === 3 ? generalExpenses.filter(e => { const d=new Date(e.date); return d.getFullYear()===year&&(month===0||d.getMonth()+1===month) }) : []}
           />
         )}
 
@@ -2316,6 +2321,8 @@ function DashboardTab({ income, expenses, yearPayments, generalExpenses, invoice
 
   const totalIncome = income.reduce((s, i) => s + (i.total || 0), 0)
   const totalExpense = expenses.reduce((s, i) => s + (i.total || 0), 0)
+  const totalGeneralFiltered = generalExpenses.filter(e => { const d=new Date(e.date); return d.getFullYear()===year&&(month===0||d.getMonth()+1===month) }).reduce((s,e)=>s+(e.amount||0),0)
+  const totalExpenseAll = totalExpense + totalGeneralFiltered
   const totalGeneral = generalExpenses.reduce((s, e) => s + (e.amount || 0), 0)
   const totalReceipts = yearPayments.filter(p => p.type === 'receipt').reduce((s, p) => s + (p.amount || 0), 0)
   const totalPaid = yearPayments.filter(p => p.type === 'payment').reduce((s, p) => s + (p.amount || 0), 0)
@@ -2454,9 +2461,24 @@ function DashboardTab({ income, expenses, yearPayments, generalExpenses, invoice
 /* ═══════════════════════════════════════
    INVOICE LIST COMPONENT (με sorting)
 ═══════════════════════════════════════ */
-function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expandedId, setExpandedId, deleteInvoice, setTab, setEditForm, fmt, fmtDate, loading, tab, copyInvoice, userRole }) {
-  const total = list.reduce((s, i) => s + (i.total || 0), 0)
-  const flist = filtered(list)
+function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expandedId, setExpandedId, deleteInvoice, setTab, setEditForm, fmt, fmtDate, loading, tab, copyInvoice, userRole, generalExpenses = [] }) {
+  // Μετατροπή generalExpenses σε invoice-like objects
+  const genAsInvoices = generalExpenses.map(e => ({
+    ...e,
+    _isGeneral: true,
+    type: 'expense',
+    invoice_type: e.category,
+    counterparty: e.vendor || e.category,
+    issuer_name: e.vendor || e.category,
+    total: e.amount,
+    subtotal: e.amount - (e.vat || 0),
+    vat: e.vat || 0,
+    number: e.receipt_ref || '—',
+    series: '',
+  }))
+  const combinedList = [...list, ...genAsInvoices]
+  const total = combinedList.reduce((s, i) => s + (i.total || 0), 0)
+  const flist = filtered(combinedList)
   const { sorted: sortedList, SortTh } = useSortable(flist, 'date', 'desc')
 
   return (
@@ -2464,7 +2486,7 @@ function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expand
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
         <h2 style={{ fontSize: 19, fontWeight: 700 }}>{title}</h2>
         {userRole !== 'employee' && <span style={{ fontFamily: 'monospace', color, fontSize: 17, fontWeight: 700 }}>{fmt(total)}</span>}
-        <span style={{ color: '#5a6070', fontSize: 13, background: '#1e2232', padding: '3px 10px', borderRadius: 20 }}>{list.length} παραστατικά</span>
+        <span style={{ color: '#5a6070', fontSize: 13, background: '#1e2232', padding: '3px 10px', borderRadius: 20 }}>{combinedList.length} παραστατικά{genAsInvoices.length > 0 ? ` (${genAsInvoices.length} γεν. έξοδα)` : ''}</span>
         <div style={{ marginLeft: 'auto', width: 260 }}>
           <input placeholder="Αναζήτηση..." value={searchQ} onChange={e => setSearchQ(e.target.value)}
             style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '9px 12px', fontSize: 13, width: '100%', outline: 'none', fontFamily: 'inherit' }} />
@@ -2509,7 +2531,9 @@ function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expand
                   onMouseLeave={e => e.currentTarget.style.background = ''}>
                   <span style={{ color: '#9ca3af', fontSize: 11, fontFamily: 'monospace' }}>{fmtDate(inv.date)}</span>
                   <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#7c5cf7' }}>{inv.series || ''}{inv.number || '—'}</span>
-                  <span style={{ fontSize: 11, color: '#4f8ef7', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inv.invoice_type || '—'}</span>
+                  <span style={{ fontSize: 11, color: inv._isGeneral ? '#fbbf24' : '#4f8ef7', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {inv._isGeneral ? `[${inv.category}]` : (inv.invoice_type || '—')}
+                  </span>
                   <div style={{ overflow: 'hidden' }}>
                     <div style={{ fontWeight: 600, fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {inv.type === 'expense' ? (inv.issuer_name || inv.counterparty || '—') : (inv.counterparty || '—')}
@@ -2535,7 +2559,25 @@ function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expand
                       onClick={e => { e.stopPropagation(); deleteInvoice(inv.id) }}>✕</button>}
                   </div>
                 </div>
-                {expandedId === inv.id && <InvoiceDetail inv={inv} color={color} fmt={fmt} fmtDate={fmtDate} />}
+                {expandedId === inv.id && (inv._isGeneral ? (
+                  <div style={{ borderTop: '1px solid #1e2232', background: '#0a0c13', padding: '16px 20px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+                      {[
+                        ['ΚΑΤΗΓΟΡΙΑ', inv.category, '#fbbf24'],
+                        ['ΠΕΡΙΓΡΑΦΗ', inv.description || '—', '#9ca3af'],
+                        ['ΠΡΟΜΗΘΕΥΤΗΣ', inv.vendor || '—', '#9ca3af'],
+                        ['ΤΡΟΠΟΣ ΠΛΗΡΩΜΗΣ', inv.payment_method || '—', '#9ca3af'],
+                        ['ΑΡ. ΑΠΟΔΕΙΞΗΣ', inv.receipt_ref || '—', '#7c5cf7'],
+                        ['ΦΠΑ', fmt(inv.vat || 0), '#9ca3af'],
+                      ].map(([label, val, c]) => (
+                        <div key={label} style={{ background: '#13151f', borderRadius: 8, padding: '10px 14px', border: '1px solid #1e2232' }}>
+                          <div style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, marginBottom: 4 }}>{label}</div>
+                          <div style={{ fontSize: 13, color: c, fontWeight: 600 }}>{val}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : <InvoiceDetail inv={inv} color={color} fmt={fmt} fmtDate={fmtDate} />)}
               </div>
             ))}
           </div>
