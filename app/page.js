@@ -69,10 +69,7 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState('')
   const [loginError, setLoginError] = useState('')
   const [loginLoading, setLoginLoading] = useState(false)
-  const [tab, setTab] = useState(() => {
-    try { return parseInt(sessionStorage.getItem('currentTab') || '0') } catch { return 0 }
-  })
-  const setTabAndSave = (t) => { setTab(t); try { sessionStorage.setItem('currentTab', t) } catch {} }
+  const [tab, setTab] = useState(0)
   const [invoices, setInvoices] = useState([])
   const [loading, setLoading] = useState(true)
   const [scanning, setScanning] = useState(false)
@@ -105,13 +102,9 @@ export default function App() {
   useEffect(() => {
     if (session) {
       loadInvoices(); loadPayments(); loadExpenses()
-      // Load user role and set default tab
+      // Load user role
       supabase.from('user_roles').select('role,name').eq('user_id', session.user.id).single()
-        .then(({ data }) => {
-          const role = data?.role || 'admin'
-          setUserRole(role)
-          if (role === 'employee') setTabAndSave(1) // Σάρωση για employees
-        })
+        .then(({ data }) => setUserRole(data?.role || 'admin'))
     }
   }, [session])
 
@@ -330,16 +323,13 @@ export default function App() {
       vat_breakdown: editForm.vat_breakdown || [],
       items: editForm.items || []
     }
-    const editId = editForm._editId
-    const { error } = editId
-      ? await supabase.from('invoices').update(row).eq('id', editId)
-      : await supabase.from('invoices').insert([row])
+    const { error } = await supabase.from('invoices').insert([row])
     if (error) notify('⚠️ ' + error.message, 'error')
     else {
-      notify(editId ? 'Παραστατικό ενημερώθηκε!' : 'Παραστατικό αποθηκεύτηκε επιτυχώς!')
+      notify('Παραστατικό αποθηκεύτηκε επιτυχώς!')
       setEditForm(null); setPreviewImg(null)
       await loadInvoices()
-      if (userRole !== 'employee') setTabAndSave(row.type === 'income' ? 2 : 3)
+      setTab(row.type === 'income' ? 2 : 3)
     }
     setSaving(false)
   }
@@ -360,14 +350,8 @@ export default function App() {
     copy.mark = null
     copy.uid = null
     setEditForm(copy)
-    setTabAndSave(1)
+    setTab(1)
     notify('Αντίγραφο έτοιμο — επεξεργάσου και αποθήκευσε!')
-  }
-
-  const editInvoice = (inv) => {
-    setEditForm({ ...inv, _editId: inv.id })
-    setTabAndSave(1)
-    notify('Επεξεργασία παραστατικού — κάνε τις αλλαγές και αποθήκευσε!')
   }
 
   const income = invoices.filter(i => {
@@ -566,7 +550,7 @@ export default function App() {
       {/* TABS */}
       <div style={C.tabBar}>
         {(userRole === 'employee' ? ALL_TABS.map((t,i) => ({t,i})).filter(({t}) => EMPLOYEE_TABS.includes(t)) : ALL_TABS.map((t,i) => ({t,i}))).map(({t,i}) => (
-          <button key={t} onClick={() => setTabAndSave(i)} style={C.tab(tab === i)}>{t}</button>
+          <button key={t} onClick={() => setTab(i)} style={C.tab(tab === i)}>{t}</button>
         ))}
       </div>
 
@@ -618,7 +602,7 @@ export default function App() {
                   <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
                     <label style={{ ...C.btnPrimary, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '13px 22px', fontSize: 14, borderRadius: 9 }}>
                       Κάμερα
-                      <input type="file" accept="image/*,application/pdf" style={{ display: 'none' }} onChange={e => handleFile(e.target.files[0])} />
+                      <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => handleFile(e.target.files[0])} />
                     </label>
                     <label style={{ ...C.btnGhost, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '13px 22px', fontSize: 14, borderRadius: 9 }}>
                       Από συλλογή
@@ -633,7 +617,7 @@ export default function App() {
             {editForm && (
               <div style={{ ...C.card, overflowY: 'auto', maxHeight: '88vh' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                  <div style={{ fontSize: 12, color: '#9ca3af', fontWeight: 700, letterSpacing: 1 }}>{editForm?._editId ? 'ΕΠΕΞΕΡΓΑΣΙΑ ΠΑΡΑΣΤΑΤΙΚΟΥ' : 'ΕΠΑΛΗΘΕΥΣΗ & ΑΠΟΘΗΚΕΥΣΗ'}</div>
+                  <div style={{ fontSize: 12, color: '#9ca3af', fontWeight: 700, letterSpacing: 1 }}>ΕΠΑΛΗΘΕΥΣΗ & ΑΠΟΘΗΚΕΥΣΗ</div>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button style={{ ...C.btnPrimary, opacity: saving ? .7 : 1, padding: '8px 16px', fontSize: 13 }} onClick={saveInvoice} disabled={saving}>
                       {saving ? '...' : 'Αποθήκευση'}
@@ -711,42 +695,14 @@ export default function App() {
                 <div style={C.section}>
                   <div style={C.sectionTitle('#fbbf24')}>ΑΞΙΕΣ</div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-                    {[['ΚΑΘΑΡΗ ΑΞΙΑ €', 'subtotal'], ['ΕΚΠΤΩΣΕΙΣ €', 'total_discount']].map(([l, k]) => (
+                    {[['ΚΑΘΑΡΗ ΑΞΙΑ €', 'subtotal'], ['ΕΚΠΤΩΣΕΙΣ €', 'total_discount'], ['ΦΠΑ €', 'vat'], ['ΣΥΝΟΛΟ €', 'total']].map(([l, k]) => (
                       <div key={k}>
                         <label style={C.label}>{l}</label>
                         <input type="number" step="0.01" value={editForm[k] || ''}
                           onChange={e => ef(k, e.target.value)}
-                          style={{ ...C.input, fontFamily: 'monospace' }} />
+                          style={{ ...C.input, fontFamily: 'monospace', fontWeight: k === 'total' ? 700 : 400, color: k === 'total' ? (editForm.type === 'income' ? '#4ade80' : '#f87171') : '#e8eaf0' }} />
                       </div>
                     ))}
-                    <div>
-                      <label style={C.label}>ΦΠΑ %</label>
-                      <select value={editForm.vat_rate || 24} onChange={e => {
-                        const rate = parseFloat(e.target.value) || 0
-                        const sub = parseFloat(editForm.subtotal) || 0
-                        const vatAmt = Math.round(sub * rate / 100 * 100) / 100
-                        ef('vat_rate', rate)
-                        ef('vat', vatAmt)
-                        ef('total', Math.round((sub + vatAmt) * 100) / 100)
-                      }} style={C.input}>
-                        <option value="0">0%</option>
-                        <option value="6">6%</option>
-                        <option value="13">13%</option>
-                        <option value="24">24%</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label style={C.label}>ΦΠΑ € (αυτόματο)</label>
-                      <input type="number" step="0.01" value={editForm.vat || ''}
-                        onChange={e => { ef('vat', e.target.value); ef('total', Math.round(((parseFloat(editForm.subtotal)||0) + (parseFloat(e.target.value)||0)) * 100) / 100) }}
-                        style={{ ...C.input, fontFamily: 'monospace', color: '#4ade80' }} />
-                    </div>
-                    <div>
-                      <label style={C.label}>ΣΥΝΟΛΟ €</label>
-                      <input type="number" step="0.01" value={editForm.total || ''}
-                        onChange={e => ef('total', e.target.value)}
-                        style={{ ...C.input, fontFamily: 'monospace', fontWeight: 700, color: editForm.type === 'income' ? '#4ade80' : '#f87171' }} />
-                    </div>
                   </div>
                 </div>
 
@@ -902,7 +858,7 @@ export default function App() {
             filtered={filtered} expandedId={expandedId} setExpandedId={setExpandedId}
             deleteInvoice={deleteInvoice} setTab={setTab} setEditForm={setEditForm}
             fmt={fmt} fmtDate={fmtDate} loading={loading}
-            tab={tab} copyInvoice={copyInvoice} userRole={userRole} loadInvoices={loadInvoices} editInvoice={editInvoice}
+            tab={tab} copyInvoice={copyInvoice} userRole={userRole} loadInvoices={loadInvoices}
             generalExpenses={tab === 3 ? generalExpenses.filter(e => { const d=new Date(e.date); return d.getFullYear()===year&&(month===0||d.getMonth()+1===month) }) : []}
           />
         )}
@@ -1759,7 +1715,7 @@ function PaymentsTab({ payments, invoices, loadPayments, fmt, fmtDate, notify, y
             </button>
             <label style={{ background: '#1e2232', color: '#e8eaf0', border: 'none', padding: '10px 16px', borderRadius: 8, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
               {scanning ? 'Ανάγνωση...' : 'Σάρωση απόδειξης'}
-              <input type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => handleExpenseFile(e.target.files[0])} disabled={scanning} />
+              <input type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => handleFile(e.target.files[0])} disabled={scanning} />
             </label>
             <button onClick={() => setShowForm(false)} style={{ background: 'transparent', color: '#5a6070', border: '1px solid #2a3040', padding: '10px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>Ακύρωση</button>
           </div>
@@ -1828,7 +1784,6 @@ const EXPENSE_CATEGORIES = [
 
 function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year, month, monthsFull }) {
   const [showForm, setShowForm] = useState(false)
-  const [editingId, setEditingId] = useState(null)
   const [scanning, setScanning] = useState(false)
   const [saving, setSaving] = useState(false)
   const [filterCat, setFilterCat] = useState('all')
@@ -1838,7 +1793,6 @@ function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year
     description: '',
     amount: '',
     vat: '',
-    vat_rate: '24',
     payment_method: 'Μετρητά',
     receipt_ref: '',
     vendor: '',
@@ -1847,7 +1801,7 @@ function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year
 
   const ef = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
-  const handleExpenseFile = async (file) => {
+  const handleFile = async (file) => {
     if (!file) return
     setScanning(true)
     const reader = new FileReader()
@@ -1886,7 +1840,7 @@ function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year
   const saveExpense = async () => {
     if (!form.amount || !form.date) { notify('Συμπλήρωσε ημερομηνία και ποσό!', 'error'); return }
     setSaving(true)
-    const row = {
+    const { error } = await supabase.from('expenses').insert([{
       date: form.date,
       category: form.category,
       description: form.description || null,
@@ -1896,16 +1850,12 @@ function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year
       receipt_ref: form.receipt_ref || null,
       vendor: form.vendor || null,
       notes: form.notes || null
-    }
-    const { error } = editingId
-      ? await supabase.from('expenses').update(row).eq('id', editingId)
-      : await supabase.from('expenses').insert([row])
+    }])
     if (error) notify('Σφάλμα: ' + error.message, 'error')
     else {
-      notify(editingId ? 'Ενημερώθηκε!' : 'Αποθηκεύτηκε!')
+      notify('Αποθηκεύτηκε!')
       setShowForm(false)
-      setEditingId(null)
-      setForm({ date: new Date().toISOString().split('T')[0], category: 'Διόδια', description: '', amount: '', vat: '', vat_rate: '24', payment_method: 'Μετρητά', receipt_ref: '', vendor: '', notes: '' })
+      setForm({ date: new Date().toISOString().split('T')[0], category: 'Διόδια', description: '', amount: '', vat: '', payment_method: 'Μετρητά', receipt_ref: '', vendor: '', notes: '' })
       await loadExpenses()
     }
     setSaving(false)
@@ -1951,7 +1901,7 @@ function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
           <label style={{ background: '#1e2232', color: '#e8eaf0', border: '1px solid #2a3040', padding: '9px 14px', borderRadius: 8, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
             {scanning ? 'Ανάγνωση...' : 'Σάρωση απόδειξης'}
-            <input type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => handleExpenseFile(e.target.files[0])} disabled={scanning} />
+            <input type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => handleFile(e.target.files[0])} disabled={scanning} />
           </label>
           <button onClick={() => setShowForm(!showForm)} style={{ background: 'linear-gradient(135deg,#4f8ef7,#7c5cf7)', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>+ Νέο</button>
         </div>
@@ -1982,7 +1932,7 @@ function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year
           {/* Φόρμα */}
           {showForm && (
             <div style={{ background: '#13151f', border: '1px solid #1e2232', borderRadius: 12, padding: 18, marginBottom: 14 }}>
-              <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 700, letterSpacing: 1, marginBottom: 14 }}>{editingId ? 'ΕΠΕΞΕΡΓΑΣΙΑ ΕΞΟΔΟΥ' : 'ΝΕΟ ΕΞΟΔΟ'}</div>
+              <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 700, letterSpacing: 1, marginBottom: 14 }}>ΝΕΟ ΕΞΟΔΟ</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
                 <div>
                   <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΗΜΕΡΟΜΗΝΙΑ</label>
@@ -1997,36 +1947,14 @@ function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year
                   </select>
                 </div>
                 <div>
-                  <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΠΟΣΟ € (με ΦΠΑ)</label>
-                  <input type="number" step="0.01" value={form.amount} onChange={e => {
-                    ef('amount', e.target.value)
-                    const rate = parseFloat(form.vat_rate) || 0
-                    const amount = parseFloat(e.target.value) || 0
-                    if (rate > 0 && amount > 0) {
-                      const vatAmt = Math.round((amount - amount / (1 + rate/100)) * 100) / 100
-                      ef('vat', vatAmt.toFixed(2))
-                    }
-                  }} style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#f87171', borderRadius: 7, padding: '8px 10px', fontSize: 14, fontWeight: 700, width: '100%', outline: 'none', fontFamily: 'monospace' }} />
+                  <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΠΟΣΟ €</label>
+                  <input type="number" step="0.01" value={form.amount} onChange={e => ef('amount', e.target.value)}
+                    style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#f87171', borderRadius: 7, padding: '8px 10px', fontSize: 14, fontWeight: 700, width: '100%', outline: 'none', fontFamily: 'monospace' }} />
                 </div>
                 <div>
-                  <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΦΠΑ %</label>
-                  <select value={form.vat_rate || '0'} onChange={e => {
-                    const rate = parseFloat(e.target.value) || 0
-                    const amount = parseFloat(form.amount) || 0
-                    const vatAmt = amount > 0 && rate > 0 ? Math.round((amount - amount / (1 + rate/100)) * 100) / 100 : 0
-                    ef('vat_rate', e.target.value)
-                    ef('vat', vatAmt.toFixed(2))
-                  }} style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '8px 10px', fontSize: 13, width: '100%', outline: 'none' }}>
-                    <option value="0">Χωρίς ΦΠΑ</option>
-                    <option value="6">6%</option>
-                    <option value="13">13%</option>
-                    <option value="24">24%</option>
-                  </select>
-                </div>
-                <div>
-                  <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΦΠΑ € (αυτόματο)</label>
-                  <input type="number" step="0.01" value={form.vat || ''} onChange={e => ef('vat', e.target.value)}
-                    style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#4ade80', borderRadius: 7, padding: '8px 10px', fontSize: 13, width: '100%', outline: 'none', fontFamily: 'monospace' }} />
+                  <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΦΠΑ €</label>
+                  <input type="number" step="0.01" value={form.vat} onChange={e => ef('vat', e.target.value)}
+                    style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '8px 10px', fontSize: 13, width: '100%', outline: 'none', fontFamily: 'monospace' }} />
                 </div>
                 <div>
                   <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΠΡΟΜΗΘΕΥΤΗΣ</label>
@@ -2059,7 +1987,7 @@ function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year
                   style={{ background: 'linear-gradient(135deg,#4f8ef7,#7c5cf7)', color: '#fff', border: 'none', padding: '9px 22px', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer', opacity: saving ? .7 : 1 }}>
                   {saving ? '...' : 'Αποθήκευση'}
                 </button>
-                <button onClick={() => { setShowForm(false); setEditingId(null); setForm({ date: new Date().toISOString().split('T')[0], category: 'Διόδια', description: '', amount: '', vat: '', vat_rate: '24', payment_method: 'Μετρητά', receipt_ref: '', vendor: '', notes: '' }) }} style={{ background: 'transparent', color: '#5a6070', border: '1px solid #2a3040', padding: '9px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>Ακύρωση</button>
+                <button onClick={() => setShowForm(false)} style={{ background: 'transparent', color: '#5a6070', border: '1px solid #2a3040', padding: '9px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>Ακύρωση</button>
               </div>
             </div>
           )}
@@ -2102,12 +2030,7 @@ function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year
                         <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 12, fontFamily: 'monospace', textAlign: 'right', color: '#5a6070' }}>{e.vat > 0 ? fmt(e.vat) : '—'}</td>
                         <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 700, color: '#f87171' }}>{fmt(e.amount)}</td>
                         <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824' }}>
-                          <button onClick={() => {
-                          setForm({ date: e.date, category: e.category, description: e.description||'', amount: e.amount||'', vat: e.vat||'', payment_method: e.payment_method||'Μετρητά', receipt_ref: e.receipt_ref||'', vendor: e.vendor||'', notes: e.notes||'' })
-                          setEditingId(e.id)
-                          setShowForm(true)
-                        }} style={{ background: 'transparent', color: '#4f8ef7', border: 'none', fontSize: 12, cursor: 'pointer', marginRight: 4 }}>✏️</button>
-                        <button onClick={() => deleteExpense(e.id)} style={{ background: 'transparent', color: '#f87171', border: 'none', fontSize: 12, cursor: 'pointer' }}>✕</button>
+                          <button onClick={() => deleteExpense(e.id)} style={{ background: 'transparent', color: '#f87171', border: 'none', fontSize: 12, cursor: 'pointer' }}>✕</button>
                         </td>
                       </tr>
                     ))}
@@ -2454,17 +2377,17 @@ function DashboardTab({ income, expenses, yearPayments, generalExpenses, invoice
 
       {/* Κύρια σύνοψη */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
-        <Card label="Έσοδα" value={fmt(totalIncome)} sub={`${income.length} παραστατικά`} color="#4ade80" onClick={() => setTabAndSave(2)} />
-        <Card label="Έξοδα (τιμολόγια)" value={fmt(totalExpense)} sub={`${expenses.length} παραστατικά`} color="#f87171" onClick={() => setTabAndSave(3)} />
-        <Card label="Γενικά Έξοδα" value={fmt(totalGeneral)} sub={`${generalExpenses.length} εγγραφές`} color="#fbbf24" onClick={() => setTabAndSave(5)} />
+        <Card label="Έσοδα" value={fmt(totalIncome)} sub={`${income.length} παραστατικά`} color="#4ade80" onClick={() => setTab(2)} />
+        <Card label="Έξοδα (τιμολόγια)" value={fmt(totalExpense)} sub={`${expenses.length} παραστατικά`} color="#f87171" onClick={() => setTab(3)} />
+        <Card label="Γενικά Έξοδα" value={fmt(totalGeneral)} sub={`${generalExpenses.length} εγγραφές`} color="#fbbf24" onClick={() => setTab(5)} />
         <Card label="Αποτέλεσμα Περιόδου" value={fmt(netResult)} sub="Έσοδα − Έξοδα − Γεν.Έξοδα" color={netResult >= 0 ? '#4ade80' : '#f87171'} bg={netResult >= 0 ? '#0a2215' : '#2a0f0f'} />
       </div>
 
       {/* Εισπρακτέα / Πληρωτέα */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
-        <Card label="Εισπράχθηκαν" value={fmt(totalReceipts)} sub={`από σύνολο ${fmt(totalIncome)}`} color="#4ade80" onClick={() => setTabAndSave(4)} />
+        <Card label="Εισπράχθηκαν" value={fmt(totalReceipts)} sub={`από σύνολο ${fmt(totalIncome)}`} color="#4ade80" onClick={() => setTab(4)} />
         <Card label="Εισπρακτέα (υπόλοιπο)" value={fmt(Math.max(0, pendingIn))} sub={pendingIn > 0 ? "Αναμένεται είσπραξη" : "Όλα εισπράχθηκαν"} color={pendingIn > 0 ? '#fbbf24' : '#4ade80'} />
-        <Card label="Πληρώθηκαν" value={fmt(totalPaid)} sub={`από σύνολο ${fmt(totalExpense)}`} color="#f87171" onClick={() => setTabAndSave(4)} />
+        <Card label="Πληρώθηκαν" value={fmt(totalPaid)} sub={`από σύνολο ${fmt(totalExpense)}`} color="#f87171" onClick={() => setTab(4)} />
         <Card label="Πληρωτέα (υπόλοιπο)" value={fmt(Math.max(0, pendingOut))} sub={pendingOut > 0 ? "Αναμένεται πληρωμή" : "Όλα πληρώθηκαν"} color={pendingOut > 0 ? '#fbbf24' : '#4ade80'} />
       </div>
 
@@ -2585,11 +2508,11 @@ function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expand
             style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '9px 12px', fontSize: 13, width: '100%', outline: 'none', fontFamily: 'inherit' }} />
         </div>
         <button style={{ background: 'linear-gradient(135deg,#4f8ef7,#7c5cf7)', color: '#fff', padding: '10px 18px', borderRadius: 8, fontWeight: 600, fontSize: 13, border: 'none', cursor: 'pointer' }}
-          onClick={() => { setEditForm({ type: tab === 2 ? 'income' : 'expense', date: new Date().toISOString().split('T')[0], items: [] }); setTabAndSave(1) }}>
+          onClick={() => { setEditForm({ type: tab === 2 ? 'income' : 'expense', date: new Date().toISOString().split('T')[0], items: [] }); setTab(1) }}>
           + Χειροκίνητη
         </button>
         <button style={{ background: 'transparent', color: '#9ca3af', border: '1px solid #2a3040', padding: '9px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}
-          onClick={() => { setEditForm(null); setTabAndSave(1) }}>
+          onClick={() => { setEditForm(null); setTab(1) }}>
           + Σάρωση
         </button>
       </div>
@@ -2645,9 +2568,6 @@ function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expand
                   <span style={{ fontFamily: 'monospace', fontSize: 14, textAlign: 'right', fontWeight: 700, color }}>{userRole === 'employee' ? '—' : fmt(inv.total)}</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
                     <span style={{ color: '#5a6070', fontSize: 11 }}>{expandedId === inv.id ? '▲' : '▼'}</span>
-                    {userRole !== 'employee' && <button style={{ background: 'transparent', color: '#4ade80', border: 'none', padding: '4px 6px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}
-                      title="Επεξεργασία"
-                      onClick={e => { e.stopPropagation(); editInvoice(inv) }}>✏️</button>}
                     {userRole !== 'employee' && <button style={{ background: 'transparent', color: '#4f8ef7', border: 'none', padding: '4px 6px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}
                       title="Αντίγραφο"
                       onClick={e => { e.stopPropagation(); copyInvoice(inv) }}>⎘</button>}
@@ -2661,15 +2581,13 @@ function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expand
                             if (!confirm('Να ακυρωθεί η αναφορά λάθους;')) return
                             const newNotes = (inv.notes || '').replace(' | ⚠️ ΛΑΘΟΣ - ΠΡΟΣ ΔΙΑΓΡΑΦΗ', '').replace('⚠️ ΛΑΘΟΣ - ΠΡΟΣ ΔΙΑΓΡΑΦΗ', '').trim()
                             await supabase.from('invoices').update({ notes: newNotes || null }).eq('id', inv.id)
-                            const { data: fresh } = await supabase.from('invoices').select('*').order('date', { ascending: false })
-                            if (fresh && loadInvoices) await loadInvoices()
+                            await loadInvoices()
                             notify('Η αναφορά λάθους ακυρώθηκε.')
                           } else {
                             if (!confirm('Να αναφερθεί ως λάθος;')) return
                             const newNotes = (inv.notes ? inv.notes + ' | ' : '') + '⚠️ ΛΑΘΟΣ - ΠΡΟΣ ΔΙΑΓΡΑΦΗ'
                             await supabase.from('invoices').update({ notes: newNotes }).eq('id', inv.id)
-                            const { data: fresh } = await supabase.from('invoices').select('*').order('date', { ascending: false })
-                            if (fresh && loadInvoices) await loadInvoices()
+                            await loadInvoices()
                             notify('Η αναφορά λάθους καταχωρήθηκε! Ο διαχειριστής θα το διαγράψει.')
                           }
                         }}>
