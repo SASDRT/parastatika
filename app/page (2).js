@@ -104,11 +104,7 @@ export default function App() {
       loadInvoices(); loadPayments(); loadExpenses()
       // Load user role
       supabase.from('user_roles').select('role,name').eq('user_id', session.user.id).single()
-        .then(({ data }) => {
-          const role = data?.role || 'admin'
-          setUserRole(role)
-          if (role === 'employee') setTab(1)
-        })
+        .then(({ data }) => setUserRole(data?.role || 'admin'))
     }
   }, [session])
 
@@ -553,11 +549,9 @@ export default function App() {
 
       {/* TABS */}
       <div style={C.tabBar}>
-        {ALL_TABS.map((t,i) => {
-          if (t === 'Dashboard' && userRole !== 'admin') return null
-          if (userRole === 'employee' && !EMPLOYEE_TABS.includes(t)) return null
-          return <button key={t} onClick={() => setTab(i)} style={C.tab(tab === i)}>{t}</button>
-        })}
+        {(userRole === 'employee' ? ALL_TABS.map((t,i) => ({t,i})).filter(({t}) => EMPLOYEE_TABS.includes(t)) : ALL_TABS.map((t,i) => ({t,i}))).map(({t,i}) => (
+          <button key={t} onClick={() => setTab(i)} style={C.tab(tab === i)}>{t}</button>
+        ))}
       </div>
 
       {/* NOTIFICATION */}
@@ -572,7 +566,7 @@ export default function App() {
         {/* ══════════════════════════════════════
             TAB 0: DASHBOARD
         ══════════════════════════════════════ */}
-        {tab === 0 && userRole === 'admin' && (
+        {tab === 0 && (
           <DashboardTab
             income={income} expenses={expenses}
             yearPayments={yearPayments}
