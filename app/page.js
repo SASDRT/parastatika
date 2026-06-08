@@ -2358,6 +2358,22 @@ function DashboardTab({ income, expenses, yearPayments, generalExpenses, invoice
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <h2 style={{ fontSize: 19, fontWeight: 700 }}>Dashboard — {period}</h2>
       </div>
+      {/* Ειδοποίηση για λάθη */}
+      {(() => {
+        const flagged = [...income, ...expenses].filter(inv => inv.notes?.includes('⚠️ ΛΑΘΟΣ'))
+        return flagged.length > 0 ? (
+          <div style={{ background: '#2a0f0f', border: '2px solid #f87171', borderRadius: 10, padding: '14px 18px', marginBottom: 18, display: 'flex', alignItems: 'center', gap: 14 }}>
+            <div style={{ fontSize: 24 }}>⚠️</div>
+            <div>
+              <div style={{ color: '#f87171', fontWeight: 700, fontSize: 14 }}>{flagged.length} παραστατικά έχουν αναφερθεί ως λάθος!</div>
+              <div style={{ color: '#9ca3af', fontSize: 12, marginTop: 3 }}>
+                {flagged.map(inv => `${inv.series||''}${inv.number||''} (${inv.issuer_name || inv.counterparty})`).join(', ')}
+              </div>
+            </div>
+            <div style={{ marginLeft: 'auto', fontSize: 11, color: '#5a6070' }}>Πήγαινε Έσοδα/Έξοδα για διαγραφή</div>
+          </div>
+        ) : null
+      })()}
 
       {/* Κύρια σύνοψη */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
@@ -2556,7 +2572,7 @@ function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expand
                       title="Αντίγραφο"
                       onClick={e => { e.stopPropagation(); copyInvoice(inv) }}>⎘</button>}
                     {userRole === 'employee' && (
-                      <button style={{ background: inv.notes?.includes('⚠️ ΛΑΘΟΣ') ? '#2a0f0f' : 'transparent', color: inv.notes?.includes('⚠️ ΛΑΘΟΣ') ? '#f87171' : '#fbbf24', border: `1px solid ${inv.notes?.includes('⚠️ ΛAΘΟΣ') ? '#f87171' : '#fbbf2444'}`, padding: '3px 7px', borderRadius: 6, fontSize: 10, cursor: 'pointer', fontWeight: 600 }}
+                      <button style={{ background: inv.notes?.includes('⚠️ ΛΑΘΟΣ') ? '#2a0f0f' : 'transparent', color: inv.notes?.includes('⚠️ ΛΑΘΟΣ') ? '#f87171' : '#fbbf24', border: `1px solid ${inv.notes?.includes('⚠️ ΛΑΘΟΣ') ? '#f87171' : '#fbbf2444'}`, padding: '3px 7px', borderRadius: 6, fontSize: 10, cursor: 'pointer', fontWeight: 600 }}
                         title="Αναφορά λάθους"
                         onClick={async e => {
                           e.stopPropagation()
