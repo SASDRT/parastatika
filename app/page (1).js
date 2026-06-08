@@ -549,9 +549,10 @@ export default function App() {
 
       {/* TABS */}
       <div style={C.tabBar}>
-        {(userRole === 'employee' ? ALL_TABS.map((t,i) => ({t,i})).filter(({t}) => EMPLOYEE_TABS.includes(t)) : ALL_TABS.map((t,i) => ({t,i}))).map(({t,i}) => (
-          <button key={t} onClick={() => setTab(i)} style={C.tab(tab === i)}>{t}</button>
-        ))}
+        {ALL_TABS.map((t,i) => {
+          if (userRole === 'employee' && !EMPLOYEE_TABS.includes(t)) return null
+          return <button key={t} onClick={() => setTab(i)} style={C.tab(tab === i)}>{t}</button>
+        })}
       </div>
 
       {/* NOTIFICATION */}
