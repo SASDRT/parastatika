@@ -1756,7 +1756,7 @@ function PaymentsTab({ payments, invoices, loadPayments, fmt, fmtDate, notify, y
             </button>
             <label style={{ background: '#1e2232', color: '#e8eaf0', border: 'none', padding: '10px 16px', borderRadius: 8, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
               {scanning ? 'Ανάγνωση...' : 'Σάρωση απόδειξης'}
-              <input type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => handleFile(e.target.files[0])} disabled={scanning} />
+              <input type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => handleExpenseFile(e.target.files[0])} disabled={scanning} />
             </label>
             <button onClick={() => setShowForm(false)} style={{ background: 'transparent', color: '#5a6070', border: '1px solid #2a3040', padding: '10px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>Ακύρωση</button>
           </div>
@@ -1844,7 +1844,7 @@ function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year
 
   const ef = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
-  const handleFile = async (file) => {
+  const handleExpenseFile = async (file) => {
     if (!file) return
     setScanning(true)
     const reader = new FileReader()
@@ -1948,7 +1948,7 @@ function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year
         <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
           <label style={{ background: '#1e2232', color: '#e8eaf0', border: '1px solid #2a3040', padding: '9px 14px', borderRadius: 8, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
             {scanning ? 'Ανάγνωση...' : 'Σάρωση απόδειξης'}
-            <input type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => handleFile(e.target.files[0])} disabled={scanning} />
+            <input type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => handleExpenseFile(e.target.files[0])} disabled={scanning} />
           </label>
           <button onClick={() => setShowForm(!showForm)} style={{ background: 'linear-gradient(135deg,#4f8ef7,#7c5cf7)', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>+ Νέο</button>
         </div>
