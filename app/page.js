@@ -323,10 +323,13 @@ export default function App() {
       vat_breakdown: editForm.vat_breakdown || [],
       items: editForm.items || []
     }
-    const { error } = await supabase.from('invoices').insert([row])
+    const editId = editForm._editId
+    const { error } = editId
+      ? await supabase.from('invoices').update(row).eq('id', editId)
+      : await supabase.from('invoices').insert([row])
     if (error) notify('⚠️ ' + error.message, 'error')
     else {
-      notify('Παραστατικό αποθηκεύτηκε επιτυχώς!')
+      notify(editId ? 'Παραστατικό ενημερώθηκε!' : 'Παραστατικό αποθηκεύτηκε επιτυχώς!')
       setEditForm(null); setPreviewImg(null)
       await loadInvoices()
       setTab(row.type === 'income' ? 2 : 3)
@@ -352,6 +355,12 @@ export default function App() {
     setEditForm(copy)
     setTab(1)
     notify('Αντίγραφο έτοιμο — επεξεργάσου και αποθήκευσε!')
+  }
+
+  const editInvoice = (inv) => {
+    setEditForm({ ...inv, _editId: inv.id })
+    setTab(1)
+    notify('Επεξεργασία παραστατικού — κάνε τις αλλαγές και αποθήκευσε!')
   }
 
   const income = invoices.filter(i => {
@@ -617,7 +626,7 @@ export default function App() {
             {editForm && (
               <div style={{ ...C.card, overflowY: 'auto', maxHeight: '88vh' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                  <div style={{ fontSize: 12, color: '#9ca3af', fontWeight: 700, letterSpacing: 1 }}>ΕΠΑΛΗΘΕΥΣΗ & ΑΠΟΘΗΚΕΥΣΗ</div>
+                  <div style={{ fontSize: 12, color: '#9ca3af', fontWeight: 700, letterSpacing: 1 }}>{editForm?._editId ? 'ΕΠΕΞΕΡΓΑΣΙΑ ΠΑΡΑΣΤΑΤΙΚΟΥ' : 'ΕΠΑΛΗΘΕΥΣΗ & ΑΠΟΘΗΚΕΥΣΗ'}</div>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button style={{ ...C.btnPrimary, opacity: saving ? .7 : 1, padding: '8px 16px', fontSize: 13 }} onClick={saveInvoice} disabled={saving}>
                       {saving ? '...' : 'Αποθήκευση'}
@@ -695,14 +704,42 @@ export default function App() {
                 <div style={C.section}>
                   <div style={C.sectionTitle('#fbbf24')}>ΑΞΙΕΣ</div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8 }}>
-                    {[['ΚΑΘΑΡΗ ΑΞΙΑ €', 'subtotal'], ['ΕΚΠΤΩΣΕΙΣ €', 'total_discount'], ['ΦΠΑ €', 'vat'], ['ΣΥΝΟΛΟ €', 'total']].map(([l, k]) => (
+                    {[['ΚΑΘΑΡΗ ΑΞΙΑ €', 'subtotal'], ['ΕΚΠΤΩΣΕΙΣ €', 'total_discount']].map(([l, k]) => (
                       <div key={k}>
                         <label style={C.label}>{l}</label>
                         <input type="number" step="0.01" value={editForm[k] || ''}
                           onChange={e => ef(k, e.target.value)}
-                          style={{ ...C.input, fontFamily: 'monospace', fontWeight: k === 'total' ? 700 : 400, color: k === 'total' ? (editForm.type === 'income' ? '#4ade80' : '#f87171') : '#e8eaf0' }} />
+                          style={{ ...C.input, fontFamily: 'monospace' }} />
                       </div>
                     ))}
+                    <div>
+                      <label style={C.label}>ΦΠΑ %</label>
+                      <select value={editForm.vat_rate || 24} onChange={e => {
+                        const rate = parseFloat(e.target.value) || 0
+                        const sub = parseFloat(editForm.subtotal) || 0
+                        const vatAmt = Math.round(sub * rate / 100 * 100) / 100
+                        ef('vat_rate', rate)
+                        ef('vat', vatAmt)
+                        ef('total', Math.round((sub + vatAmt) * 100) / 100)
+                      }} style={C.input}>
+                        <option value="0">0%</option>
+                        <option value="6">6%</option>
+                        <option value="13">13%</option>
+                        <option value="24">24%</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label style={C.label}>ΦΠΑ € (αυτόματο)</label>
+                      <input type="number" step="0.01" value={editForm.vat || ''}
+                        onChange={e => { ef('vat', e.target.value); ef('total', Math.round(((parseFloat(editForm.subtotal)||0) + (parseFloat(e.target.value)||0)) * 100) / 100) }}
+                        style={{ ...C.input, fontFamily: 'monospace', color: '#4ade80' }} />
+                    </div>
+                    <div>
+                      <label style={C.label}>ΣΥΝΟΛΟ €</label>
+                      <input type="number" step="0.01" value={editForm.total || ''}
+                        onChange={e => ef('total', e.target.value)}
+                        style={{ ...C.input, fontFamily: 'monospace', fontWeight: 700, color: editForm.type === 'income' ? '#4ade80' : '#f87171' }} />
+                    </div>
                   </div>
                 </div>
 
@@ -858,7 +895,7 @@ export default function App() {
             filtered={filtered} expandedId={expandedId} setExpandedId={setExpandedId}
             deleteInvoice={deleteInvoice} setTab={setTab} setEditForm={setEditForm}
             fmt={fmt} fmtDate={fmtDate} loading={loading}
-            tab={tab} copyInvoice={copyInvoice} userRole={userRole} loadInvoices={loadInvoices}
+            tab={tab} copyInvoice={copyInvoice} userRole={userRole} loadInvoices={loadInvoices} editInvoice={editInvoice}
             generalExpenses={tab === 3 ? generalExpenses.filter(e => { const d=new Date(e.date); return d.getFullYear()===year&&(month===0||d.getMonth()+1===month) }) : []}
           />
         )}
@@ -2601,6 +2638,9 @@ function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expand
                   <span style={{ fontFamily: 'monospace', fontSize: 14, textAlign: 'right', fontWeight: 700, color }}>{userRole === 'employee' ? '—' : fmt(inv.total)}</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
                     <span style={{ color: '#5a6070', fontSize: 11 }}>{expandedId === inv.id ? '▲' : '▼'}</span>
+                    {userRole !== 'employee' && <button style={{ background: 'transparent', color: '#4ade80', border: 'none', padding: '4px 6px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}
+                      title="Επεξεργασία"
+                      onClick={e => { e.stopPropagation(); editInvoice(inv) }}>✏️</button>}
                     {userRole !== 'employee' && <button style={{ background: 'transparent', color: '#4f8ef7', border: 'none', padding: '4px 6px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}
                       title="Αντίγραφο"
                       onClick={e => { e.stopPropagation(); copyInvoice(inv) }}>⎘</button>}
