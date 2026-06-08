@@ -618,7 +618,7 @@ export default function App() {
                   <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
                     <label style={{ ...C.btnPrimary, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '13px 22px', fontSize: 14, borderRadius: 9 }}>
                       Κάμερα
-                      <input type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={e => handleFile(e.target.files[0])} />
+                      <input type="file" accept="image/*,application/pdf" style={{ display: 'none' }} onChange={e => handleFile(e.target.files[0])} />
                     </label>
                     <label style={{ ...C.btnGhost, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '13px 22px', fontSize: 14, borderRadius: 9 }}>
                       Από συλλογή
