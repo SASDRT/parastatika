@@ -2571,29 +2571,7 @@ function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expand
                     {userRole !== 'employee' && <button style={{ background: 'transparent', color: '#4f8ef7', border: 'none', padding: '4px 6px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}
                       title="Αντίγραφο"
                       onClick={e => { e.stopPropagation(); copyInvoice(inv) }}>⎘</button>}
-                    {userRole === 'employee' && (
-                      <button style={{ background: inv.notes?.includes('⚠️ ΛΑΘΟΣ') ? '#2a0f0f' : 'transparent', color: inv.notes?.includes('⚠️ ΛΑΘΟΣ') ? '#f87171' : '#fbbf24', border: `1px solid ${inv.notes?.includes('⚠️ ΛΑΘΟΣ') ? '#f87171' : '#fbbf2444'}`, padding: '3px 7px', borderRadius: 6, fontSize: 10, cursor: 'pointer', fontWeight: 600 }}
-                        title="Αναφορά λάθους"
-                        onClick={async e => {
-                          e.stopPropagation()
-                          if (inv.notes?.includes('⚠️ ΛΑΘΟΣ')) {
-                            // Ακύρωση αναφοράς
-                            if (!confirm('Να ακυρωθεί η αναφορά λάθους;')) return
-                            const newNotes = (inv.notes || '').replace(' | ⚠️ ΛΑΘΟΣ - ΠΡΟΣ ΔΙΑΓΡΑΦΗ', '').replace('⚠️ ΛΑΘΟΣ - ΠΡΟΣ ΔΙΑΓΡΑΦΗ', '').trim()
-                            await supabase.from('invoices').update({ notes: newNotes || null }).eq('id', inv.id)
-                            await loadInvoices()
-                            notify('Η αναφορά λάθους ακυρώθηκε.')
-                          } else {
-                            if (!confirm('Να αναφερθεί ως λάθος;')) return
-                            const newNotes = (inv.notes ? inv.notes + ' | ' : '') + '⚠️ ΛΑΘΟΣ - ΠΡΟΣ ΔΙΑΓΡΑΦΗ'
-                            await supabase.from('invoices').update({ notes: newNotes }).eq('id', inv.id)
-                            await loadInvoices()
-                            notify('Η αναφορά λάθους καταχωρήθηκε! Ο διαχειριστής θα το διαγράψει.')
-                          }
-                        }}>
-                        {inv.notes?.includes('⚠️ ΛΑΘΟΣ') ? '⚠️ Ακύρωση' : '! Λάθος'}
-                      </button>
-                    )}
+
                     {userRole !== 'employee' && <button style={{ background: 'transparent', color: '#f87171', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}
                       onClick={e => { e.stopPropagation(); deleteInvoice(inv.id) }}>✕</button>}
                   </div>
