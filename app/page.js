@@ -108,11 +108,12 @@ export default function App() {
     }
   }, [session])
 
-  const loadInvoices = async () => {
+  const loadInvoices = async (keepTab) => {
     setLoading(true)
     const { data, error } = await supabase.from('invoices').select('*').order('date', { ascending: false })
     if (!error) setInvoices(data || [])
     setLoading(false)
+    if (keepTab !== undefined) setTab(keepTab)
   }
 
   const loadPayments = async () => {
@@ -2477,7 +2478,7 @@ function DashboardTab({ income, expenses, yearPayments, generalExpenses, invoice
 /* ═══════════════════════════════════════
    INVOICE LIST COMPONENT (με sorting)
 ═══════════════════════════════════════ */
-function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expandedId, setExpandedId, deleteInvoice, setTab, setEditForm, fmt, fmtDate, loading, tab, copyInvoice, userRole, generalExpenses = [] }) {
+function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expandedId, setExpandedId, deleteInvoice, setTab, setEditForm, fmt, fmtDate, loading, tab, copyInvoice, userRole, generalExpenses = [], loadInvoices }) {
   // Μετατροπή generalExpenses σε invoice-like objects
   const genAsInvoices = generalExpenses.map(e => ({
     ...e,
@@ -2572,6 +2573,27 @@ function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expand
                       title="Αντίγραφο"
                       onClick={e => { e.stopPropagation(); copyInvoice(inv) }}>⎘</button>}
 
+                    {userRole === 'employee' && !inv._isGeneral && (
+                      <button
+                        style={{ background: inv.notes?.includes('⚠️ ΛΑΘΟΣ') ? '#2a0f0f' : 'transparent', color: inv.notes?.includes('⚠️ ΛΑΘΟΣ') ? '#f87171' : '#fbbf24', border: `1px solid ${inv.notes?.includes('⚠️ ΛΑΘΟΣ') ? '#f87171' : '#fbbf2444'}`, padding: '3px 7px', borderRadius: 6, fontSize: 10, cursor: 'pointer', fontWeight: 600 }}
+                        onClick={async e => {
+                          e.stopPropagation()
+                          if (inv.notes?.includes('⚠️ ΛΑΘΟΣ')) {
+                            const newNotes = (inv.notes || '').replace(' | ⚠️ ΛΑΘΟΣ - ΠΡΟΣ ΔΙΑΓΡΑΦΗ', '').replace('⚠️ ΛΑΘΟΣ - ΠΡΟΣ ΔΙΑΓΡΑΦΗ', '').trim()
+                            await supabase.from('invoices').update({ notes: newNotes || null }).eq('id', inv.id)
+                            inv.notes = newNotes || null
+                            notify('Η αναφορά ακυρώθηκε.')
+                          } else {
+                            const newNotes = (inv.notes ? inv.notes + ' | ' : '') + '⚠️ ΛΑΘΟΣ - ΠΡΟΣ ΔΙΑΓΡΑΦΗ'
+                            await supabase.from('invoices').update({ notes: newNotes }).eq('id', inv.id)
+                            inv.notes = newNotes
+                            notify('Αναφέρθηκε ως λάθος!')
+                          }
+                          if (loadInvoices) loadInvoices(tab)
+                        }}>
+                        {inv.notes?.includes('⚠️ ΛΑΘΟΣ') ? '⚠️ Ακύρωση' : '! Λάθος'}
+                      </button>
+                    )}
                     {userRole !== 'employee' && <button style={{ background: 'transparent', color: '#f87171', border: 'none', padding: '4px 8px', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}
                       onClick={e => { e.stopPropagation(); deleteInvoice(inv.id) }}>✕</button>}
                   </div>
