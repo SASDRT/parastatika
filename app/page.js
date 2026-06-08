@@ -69,7 +69,10 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState('')
   const [loginError, setLoginError] = useState('')
   const [loginLoading, setLoginLoading] = useState(false)
-  const [tab, setTab] = useState(0)
+  const [tab, setTab] = useState(() => {
+    try { return parseInt(sessionStorage.getItem('currentTab') || '0') } catch { return 0 }
+  })
+  const setTabAndSave = (t) => { setTab(t); try { sessionStorage.setItem('currentTab', t) } catch {} }
   const [invoices, setInvoices] = useState([])
   const [loading, setLoading] = useState(true)
   const [scanning, setScanning] = useState(false)
@@ -107,7 +110,7 @@ export default function App() {
         .then(({ data }) => {
           const role = data?.role || 'admin'
           setUserRole(role)
-          if (role === 'employee') setTab(1) // Σάρωση για employees
+          if (role === 'employee') setTabAndSave(1) // Σάρωση για employees
         })
     }
   }, [session])
@@ -336,7 +339,7 @@ export default function App() {
       notify(editId ? 'Παραστατικό ενημερώθηκε!' : 'Παραστατικό αποθηκεύτηκε επιτυχώς!')
       setEditForm(null); setPreviewImg(null)
       await loadInvoices()
-      if (userRole !== 'employee') setTab(row.type === 'income' ? 2 : 3)
+      if (userRole !== 'employee') setTabAndSave(row.type === 'income' ? 2 : 3)
     }
     setSaving(false)
   }
@@ -357,13 +360,13 @@ export default function App() {
     copy.mark = null
     copy.uid = null
     setEditForm(copy)
-    setTab(1)
+    setTabAndSave(1)
     notify('Αντίγραφο έτοιμο — επεξεργάσου και αποθήκευσε!')
   }
 
   const editInvoice = (inv) => {
     setEditForm({ ...inv, _editId: inv.id })
-    setTab(1)
+    setTabAndSave(1)
     notify('Επεξεργασία παραστατικού — κάνε τις αλλαγές και αποθήκευσε!')
   }
 
@@ -563,7 +566,7 @@ export default function App() {
       {/* TABS */}
       <div style={C.tabBar}>
         {(userRole === 'employee' ? ALL_TABS.map((t,i) => ({t,i})).filter(({t}) => EMPLOYEE_TABS.includes(t)) : ALL_TABS.map((t,i) => ({t,i}))).map(({t,i}) => (
-          <button key={t} onClick={() => setTab(i)} style={C.tab(tab === i)}>{t}</button>
+          <button key={t} onClick={() => setTabAndSave(i)} style={C.tab(tab === i)}>{t}</button>
         ))}
       </div>
 
@@ -2451,17 +2454,17 @@ function DashboardTab({ income, expenses, yearPayments, generalExpenses, invoice
 
       {/* Κύρια σύνοψη */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
-        <Card label="Έσοδα" value={fmt(totalIncome)} sub={`${income.length} παραστατικά`} color="#4ade80" onClick={() => setTab(2)} />
-        <Card label="Έξοδα (τιμολόγια)" value={fmt(totalExpense)} sub={`${expenses.length} παραστατικά`} color="#f87171" onClick={() => setTab(3)} />
-        <Card label="Γενικά Έξοδα" value={fmt(totalGeneral)} sub={`${generalExpenses.length} εγγραφές`} color="#fbbf24" onClick={() => setTab(5)} />
+        <Card label="Έσοδα" value={fmt(totalIncome)} sub={`${income.length} παραστατικά`} color="#4ade80" onClick={() => setTabAndSave(2)} />
+        <Card label="Έξοδα (τιμολόγια)" value={fmt(totalExpense)} sub={`${expenses.length} παραστατικά`} color="#f87171" onClick={() => setTabAndSave(3)} />
+        <Card label="Γενικά Έξοδα" value={fmt(totalGeneral)} sub={`${generalExpenses.length} εγγραφές`} color="#fbbf24" onClick={() => setTabAndSave(5)} />
         <Card label="Αποτέλεσμα Περιόδου" value={fmt(netResult)} sub="Έσοδα − Έξοδα − Γεν.Έξοδα" color={netResult >= 0 ? '#4ade80' : '#f87171'} bg={netResult >= 0 ? '#0a2215' : '#2a0f0f'} />
       </div>
 
       {/* Εισπρακτέα / Πληρωτέα */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 20 }}>
-        <Card label="Εισπράχθηκαν" value={fmt(totalReceipts)} sub={`από σύνολο ${fmt(totalIncome)}`} color="#4ade80" onClick={() => setTab(4)} />
+        <Card label="Εισπράχθηκαν" value={fmt(totalReceipts)} sub={`από σύνολο ${fmt(totalIncome)}`} color="#4ade80" onClick={() => setTabAndSave(4)} />
         <Card label="Εισπρακτέα (υπόλοιπο)" value={fmt(Math.max(0, pendingIn))} sub={pendingIn > 0 ? "Αναμένεται είσπραξη" : "Όλα εισπράχθηκαν"} color={pendingIn > 0 ? '#fbbf24' : '#4ade80'} />
-        <Card label="Πληρώθηκαν" value={fmt(totalPaid)} sub={`από σύνολο ${fmt(totalExpense)}`} color="#f87171" onClick={() => setTab(4)} />
+        <Card label="Πληρώθηκαν" value={fmt(totalPaid)} sub={`από σύνολο ${fmt(totalExpense)}`} color="#f87171" onClick={() => setTabAndSave(4)} />
         <Card label="Πληρωτέα (υπόλοιπο)" value={fmt(Math.max(0, pendingOut))} sub={pendingOut > 0 ? "Αναμένεται πληρωμή" : "Όλα πληρώθηκαν"} color={pendingOut > 0 ? '#fbbf24' : '#4ade80'} />
       </div>
 
@@ -2582,11 +2585,11 @@ function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expand
             style={{ background: '#0a0c13', border: '1px solid #2a3040', color: '#e8eaf0', borderRadius: 7, padding: '9px 12px', fontSize: 13, width: '100%', outline: 'none', fontFamily: 'inherit' }} />
         </div>
         <button style={{ background: 'linear-gradient(135deg,#4f8ef7,#7c5cf7)', color: '#fff', padding: '10px 18px', borderRadius: 8, fontWeight: 600, fontSize: 13, border: 'none', cursor: 'pointer' }}
-          onClick={() => { setEditForm({ type: tab === 2 ? 'income' : 'expense', date: new Date().toISOString().split('T')[0], items: [] }); setTab(1) }}>
+          onClick={() => { setEditForm({ type: tab === 2 ? 'income' : 'expense', date: new Date().toISOString().split('T')[0], items: [] }); setTabAndSave(1) }}>
           + Χειροκίνητη
         </button>
         <button style={{ background: 'transparent', color: '#9ca3af', border: '1px solid #2a3040', padding: '9px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}
-          onClick={() => { setEditForm(null); setTab(1) }}>
+          onClick={() => { setEditForm(null); setTabAndSave(1) }}>
           + Σάρωση
         </button>
       </div>
