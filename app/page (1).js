@@ -64,6 +64,7 @@ const C = {
 export default function App() {
   const [session, setSession] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
+  const [roleLoading, setRoleLoading] = useState(true)
   const [userRole, setUserRole] = useState(null)
   const [loginEmail, setLoginEmail] = useState('')
   const [loginPassword, setLoginPassword] = useState('')
@@ -453,7 +454,7 @@ export default function App() {
     </div>
   )
 
-  if (authLoading) return (
+  if (authLoading || (session && roleLoading)) return (
     <div style={{ minHeight: '100vh', background: '#0a0c13', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ color: '#4f8ef7', fontSize: 14 }}>Φόρτωση...</div>
     </div>
