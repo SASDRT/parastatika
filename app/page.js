@@ -2623,7 +2623,7 @@ function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expand
                       title="Αντίγραφο"
                       onClick={e => { e.stopPropagation(); copyInvoice(inv) }}>⎘</button>}
 
-                    {userRole === 'employee' && !inv._isGeneral && (() => {
+                    {userRole === 'employee' && (() => {
                       const isFlagged = flagged[inv.id] !== undefined ? flagged[inv.id] : inv.notes?.includes('⚠️ ΛΑΘΟΣ')
                       return (
                         <button
