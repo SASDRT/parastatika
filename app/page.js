@@ -2611,6 +2611,9 @@ function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expand
                     {userRole !== 'employee' && <button style={{ background: 'transparent', color: '#4ade80', border: 'none', padding: '4px 6px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}
                       title="Επεξεργασία"
                       onClick={e => { e.stopPropagation(); setEditForm({ ...inv, _editId: inv.id }); setTab(1) }}>✏️</button>}
+                    {userRole === 'employee' && !inv._isGeneral && <button style={{ background: 'transparent', color: '#4ade80', border: 'none', padding: '4px 6px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}
+                      title="Επεξεργασία"
+                      onClick={e => { e.stopPropagation(); setEditForm({ ...inv, _editId: inv.id }); setTab(1) }}>✏️</button>}
                     {userRole !== 'employee' && <button style={{ background: 'transparent', color: '#4f8ef7', border: 'none', padding: '4px 6px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}
                       title="Αντίγραφο"
                       onClick={e => { e.stopPropagation(); copyInvoice(inv) }}>⎘</button>}
