@@ -874,7 +874,7 @@ export default function App() {
         {/* ══════════════════════════════════════
             TAB 4: ΓΕΝΙΚΑ ΕΞΟΔΑ
         ══════════════════════════════════════ */}
-        {tab === 5 && <GeneralExpensesTab expenses={generalExpenses.filter(e => {
+        {tab === 5 && <GeneralExpensesTab userRole={userRole} expenses={generalExpenses.filter(e => {
           const d = new Date(e.date)
           return d.getFullYear() === year && (month === 0 || d.getMonth() + 1 === month)
         })} loadExpenses={loadExpenses} fmt={fmt} fmtDate={fmtDate} notify={notify} year={year} month={month} monthsFull={monthsFull} />}
@@ -1785,11 +1785,12 @@ const EXPENSE_CATEGORIES = [
   'Διαφήμιση', 'Λογισμικό', 'Άλλο'
 ]
 
-function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year, month, monthsFull }) {
+function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year, month, monthsFull, userRole }) {
   const [showForm, setShowForm] = useState(false)
   const [scanning, setScanning] = useState(false)
   const [saving, setSaving] = useState(false)
   const [filterCat, setFilterCat] = useState('all')
+  const [flagged, setFlagged] = useState({})
   const [form, setForm] = useState({
     date: new Date().toISOString().split('T')[0],
     category: 'Διόδια',
@@ -2033,7 +2034,28 @@ function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year
                         <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 12, fontFamily: 'monospace', textAlign: 'right', color: '#5a6070' }}>{e.vat > 0 ? fmt(e.vat) : '—'}</td>
                         <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 700, color: '#f87171' }}>{fmt(e.amount)}</td>
                         <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824' }}>
-                          <button onClick={() => deleteExpense(e.id)} style={{ background: 'transparent', color: '#f87171', border: 'none', fontSize: 12, cursor: 'pointer' }}>✕</button>
+                          {userRole === 'employee' && (() => {
+                          const isFlagged = flagged[e.id] !== undefined ? flagged[e.id] : (e.notes?.includes('⚠️ ΛΑΘΟΣ'))
+                          return (
+                            <button
+                              style={{ background: isFlagged ? '#2a0f0f' : 'transparent', color: isFlagged ? '#f87171' : '#fbbf24', border: `1px solid ${isFlagged ? '#f87171' : '#fbbf2444'}`, padding: '3px 7px', borderRadius: 6, fontSize: 10, cursor: 'pointer', fontWeight: 600 }}
+                              onClick={async ev => {
+                                ev.stopPropagation()
+                                if (isFlagged) {
+                                  setFlagged(f => ({ ...f, [e.id]: false }))
+                                  await supabase.from('expenses').update({ notes: null }).eq('id', e.id)
+                                  notify('Η αναφορά ακυρώθηκε.')
+                                } else {
+                                  setFlagged(f => ({ ...f, [e.id]: true }))
+                                  await supabase.from('expenses').update({ notes: '⚠️ ΛΑΘΟΣ - ΠΡΟΣ ΔΙΑΓΡΑΦΗ' }).eq('id', e.id)
+                                  notify('Αναφέρθηκε ως λάθος!')
+                                }
+                              }}>
+                              {isFlagged ? '⚠️ Ακύρωση' : '! Λάθος'}
+                            </button>
+                          )
+                        })()}
+                        {userRole !== 'employee' && <button onClick={() => deleteExpense(e.id)} style={{ background: 'transparent', color: '#f87171', border: 'none', fontSize: 12, cursor: 'pointer' }}>✕</button>}
                         </td>
                       </tr>
                     ))}
