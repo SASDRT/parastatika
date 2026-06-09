@@ -2047,6 +2047,11 @@ function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year
                           setEditingId(e.id)
                           setShowForm(true)
                         }} style={{ background: 'transparent', color: '#4ade80', border: 'none', fontSize: 12, cursor: 'pointer', marginRight: 4 }}>✏️</button>}
+                        {userRole === 'employee' && <button onClick={() => {
+                          setForm({ date: e.date, category: e.category, description: e.description||'', amount: e.amount||'', vat: e.vat||'', payment_method: e.payment_method||'Μετρητά', receipt_ref: e.receipt_ref||'', vendor: e.vendor||'', notes: e.notes||'' })
+                          setEditingId(e.id)
+                          setShowForm(true)
+                        }} style={{ background: 'transparent', color: '#4ade80', border: 'none', fontSize: 12, cursor: 'pointer', marginRight: 4 }}>✏️</button>}
                         {userRole === 'employee' && (() => {
                           const isFlagged = flagged[e.id] !== undefined ? flagged[e.id] : (e.notes?.includes('⚠️ ΛΑΘΟΣ'))
                           return (
