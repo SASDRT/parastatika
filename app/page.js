@@ -326,10 +326,13 @@ export default function App() {
       vat_breakdown: editForm.vat_breakdown || [],
       items: editForm.items || []
     }
-    const { error } = await supabase.from('invoices').insert([row])
+    const editId = editForm._editId
+    const { error } = editId
+      ? await supabase.from('invoices').update(row).eq('id', editId)
+      : await supabase.from('invoices').insert([row])
     if (error) notify('⚠️ ' + error.message, 'error')
     else {
-      notify('Παραστατικό αποθηκεύτηκε επιτυχώς!')
+      notify(editId ? 'Παραστατικό ενημερώθηκε!' : 'Παραστατικό αποθηκεύτηκε επιτυχώς!')
       setEditForm(null); setPreviewImg(null)
       await loadInvoices()
       setTab(row.type === 'income' ? 2 : 3)
@@ -620,7 +623,7 @@ export default function App() {
             {editForm && (
               <div style={{ ...C.card, overflowY: 'auto', maxHeight: '88vh' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                  <div style={{ fontSize: 12, color: '#9ca3af', fontWeight: 700, letterSpacing: 1 }}>ΕΠΑΛΗΘΕΥΣΗ & ΑΠΟΘΗΚΕΥΣΗ</div>
+                  <div style={{ fontSize: 12, color: '#9ca3af', fontWeight: 700, letterSpacing: 1 }}>{editForm?._editId ? 'ΕΠΕΞΕΡΓΑΣΙΑ ΠΑΡΑΣΤΑΤΙΚΟΥ' : 'ΕΠΑΛΗΘΕΥΣΗ & ΑΠΟΘΗΚΕΥΣΗ'}</div>
                   <div style={{ display: 'flex', gap: 8 }}>
                     <button style={{ ...C.btnPrimary, opacity: saving ? .7 : 1, padding: '8px 16px', fontSize: 13 }} onClick={saveInvoice} disabled={saving}>
                       {saving ? '...' : 'Αποθήκευση'}
@@ -2595,6 +2598,9 @@ function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expand
                   <span style={{ fontFamily: 'monospace', fontSize: 14, textAlign: 'right', fontWeight: 700, color }}>{userRole === 'employee' ? '—' : fmt(inv.total)}</span>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
                     <span style={{ color: '#5a6070', fontSize: 11 }}>{expandedId === inv.id ? '▲' : '▼'}</span>
+                    {userRole !== 'employee' && <button style={{ background: 'transparent', color: '#4ade80', border: 'none', padding: '4px 6px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}
+                      title="Επεξεργασία"
+                      onClick={e => { e.stopPropagation(); setEditForm({ ...inv, _editId: inv.id }); setTab(0) }}>✏️</button>}
                     {userRole !== 'employee' && <button style={{ background: 'transparent', color: '#4f8ef7', border: 'none', padding: '4px 6px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}
                       title="Αντίγραφο"
                       onClick={e => { e.stopPropagation(); copyInvoice(inv) }}>⎘</button>}
