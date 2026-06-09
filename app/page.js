@@ -1790,6 +1790,7 @@ const EXPENSE_CATEGORIES = [
 
 function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year, month, monthsFull, userRole }) {
   const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId] = useState(null)
   const [scanning, setScanning] = useState(false)
   const [saving, setSaving] = useState(false)
   const [filterCat, setFilterCat] = useState('all')
@@ -1847,7 +1848,7 @@ function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year
   const saveExpense = async () => {
     if (!form.amount || !form.date) { notify('Συμπλήρωσε ημερομηνία και ποσό!', 'error'); return }
     setSaving(true)
-    const { error } = await supabase.from('expenses').insert([{
+    const row = {
       date: form.date,
       category: form.category,
       description: form.description || null,
@@ -1857,11 +1858,15 @@ function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year
       receipt_ref: form.receipt_ref || null,
       vendor: form.vendor || null,
       notes: form.notes || null
-    }])
+    }
+    const { error } = editingId
+      ? await supabase.from('expenses').update(row).eq('id', editingId)
+      : await supabase.from('expenses').insert([row])
     if (error) notify('Σφάλμα: ' + error.message, 'error')
     else {
-      notify('Αποθηκεύτηκε!')
+      notify(editingId ? 'Ενημερώθηκε!' : 'Αποθηκεύτηκε!')
       setShowForm(false)
+      setEditingId(null)
       setForm({ date: new Date().toISOString().split('T')[0], category: 'Διόδια', description: '', amount: '', vat: '', payment_method: 'Μετρητά', receipt_ref: '', vendor: '', notes: '' })
       await loadExpenses()
     }
@@ -1939,7 +1944,7 @@ function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year
           {/* Φόρμα */}
           {showForm && (
             <div style={{ background: '#13151f', border: '1px solid #1e2232', borderRadius: 12, padding: 18, marginBottom: 14 }}>
-              <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 700, letterSpacing: 1, marginBottom: 14 }}>ΝΕΟ ΕΞΟΔΟ</div>
+              <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 700, letterSpacing: 1, marginBottom: 14 }}>{editingId ? 'ΕΠΕΞΕΡΓΑΣΙΑ ΕΞΟΔΟΥ' : 'ΝΕΟ ΕΞΟΔΟ'}</div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
                 <div>
                   <label style={{ fontSize: 10, color: '#5a6070', fontWeight: 700, display: 'block', marginBottom: 4 }}>ΗΜΕΡΟΜΗΝΙΑ</label>
@@ -1994,7 +1999,7 @@ function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year
                   style={{ background: 'linear-gradient(135deg,#4f8ef7,#7c5cf7)', color: '#fff', border: 'none', padding: '9px 22px', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer', opacity: saving ? .7 : 1 }}>
                   {saving ? '...' : 'Αποθήκευση'}
                 </button>
-                <button onClick={() => setShowForm(false)} style={{ background: 'transparent', color: '#5a6070', border: '1px solid #2a3040', padding: '9px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>Ακύρωση</button>
+                <button onClick={() => { setShowForm(false); setEditingId(null); setForm({ date: new Date().toISOString().split('T')[0], category: 'Διόδια', description: '', amount: '', vat: '', payment_method: 'Μετρητά', receipt_ref: '', vendor: '', notes: '' }) }} style={{ background: 'transparent', color: '#5a6070', border: '1px solid #2a3040', padding: '9px 16px', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>Ακύρωση</button>
               </div>
             </div>
           )}
@@ -2037,7 +2042,12 @@ function GeneralExpensesTab({ expenses, loadExpenses, fmt, fmtDate, notify, year
                         <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 12, fontFamily: 'monospace', textAlign: 'right', color: '#5a6070' }}>{e.vat > 0 ? fmt(e.vat) : '—'}</td>
                         <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824', fontSize: 14, fontFamily: 'monospace', textAlign: 'right', fontWeight: 700, color: '#f87171' }}>{fmt(e.amount)}</td>
                         <td style={{ padding: '10px 12px', borderBottom: '1px solid #161824' }}>
-                          {userRole === 'employee' && (() => {
+                          {userRole !== 'employee' && <button onClick={() => {
+                          setForm({ date: e.date, category: e.category, description: e.description||'', amount: e.amount||'', vat: e.vat||'', payment_method: e.payment_method||'Μετρητά', receipt_ref: e.receipt_ref||'', vendor: e.vendor||'', notes: e.notes||'' })
+                          setEditingId(e.id)
+                          setShowForm(true)
+                        }} style={{ background: 'transparent', color: '#4ade80', border: 'none', fontSize: 12, cursor: 'pointer', marginRight: 4 }}>✏️</button>}
+                        {userRole === 'employee' && (() => {
                           const isFlagged = flagged[e.id] !== undefined ? flagged[e.id] : (e.notes?.includes('⚠️ ΛΑΘΟΣ'))
                           return (
                             <button
@@ -2600,7 +2610,7 @@ function InvoiceList({ list, color, title, searchQ, setSearchQ, filtered, expand
                     <span style={{ color: '#5a6070', fontSize: 11 }}>{expandedId === inv.id ? '▲' : '▼'}</span>
                     {userRole !== 'employee' && <button style={{ background: 'transparent', color: '#4ade80', border: 'none', padding: '4px 6px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}
                       title="Επεξεργασία"
-                      onClick={e => { e.stopPropagation(); setEditForm({ ...inv, _editId: inv.id }); setTab(0) }}>✏️</button>}
+                      onClick={e => { e.stopPropagation(); setEditForm({ ...inv, _editId: inv.id }); setTab(1) }}>✏️</button>}
                     {userRole !== 'employee' && <button style={{ background: 'transparent', color: '#4f8ef7', border: 'none', padding: '4px 6px', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}
                       title="Αντίγραφο"
                       onClick={e => { e.stopPropagation(); copyInvoice(inv) }}>⎘</button>}
