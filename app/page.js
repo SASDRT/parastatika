@@ -238,18 +238,46 @@ export default function App() {
     setTimeout(() => setNotification(''), 4000)
   }
 
+  const compressImage = (dataUrl, maxSizeMB = 3) => new Promise(resolve => {
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      let { width, height } = img
+      const maxDim = 1920
+      if (width > maxDim || height > maxDim) {
+        if (width > height) { height = Math.round(height * maxDim / width); width = maxDim }
+        else { width = Math.round(width * maxDim / height); height = maxDim }
+      }
+      canvas.width = width; canvas.height = height
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height)
+      let quality = 0.85
+      let result = canvas.toDataURL('image/jpeg', quality)
+      while (result.length > maxSizeMB * 1024 * 1024 * 1.37 && quality > 0.3) {
+        quality -= 0.1
+        result = canvas.toDataURL('image/jpeg', quality)
+      }
+      resolve(result)
+    }
+    img.src = dataUrl
+  })
+
   const handleFile = async (file) => {
     if (!file) return
     setScanning(true); setEditForm(null); setPreviewImg(null)
     const reader = new FileReader()
     reader.onload = async (e) => {
-      const dataUrl = e.target.result
-      setPreviewImg(dataUrl)
       try {
+        let dataUrl = e.target.result
+        let mediaType = file.type || 'image/jpeg'
+        if (file.type !== 'application/pdf') {
+          dataUrl = await compressImage(dataUrl)
+          mediaType = 'image/jpeg'
+        }
+        setPreviewImg(dataUrl)
         const res = await fetch('/api/ocr', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ base64: dataUrl.split(',')[1], mediaType: file.type || 'image/jpeg' })
+          body: JSON.stringify({ base64: dataUrl.split(',')[1], mediaType })
         })
         const json = await res.json()
         if (json.success) setEditForm(json.data)
