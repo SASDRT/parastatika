@@ -463,7 +463,7 @@ export default function App() {
       const key = p.afm || p.counterparty
       if (!map[key]) map[key] = { name: p.counterparty, trade_name: null, afm: p.afm, doy: null, invoices: [], total: 0, paidTotal: 0 }
     })
-    // Υπολογισμός πραγματικού υπολοίπου (τιμολόγια - πληρωμές)
+    // Υπολογισμός πραγματικού υπολοίπου (τιμολόγια - πιστωτικά - πληρωμές)
     Object.values(map).forEach(cp => {
       const paid = pmts.filter(p => {
         const pT = type === 'expense' ? 'payment' : 'receipt'
@@ -472,8 +472,13 @@ export default function App() {
           (p.counterparty || '').toLowerCase() === cp.name.toLowerCase()
         )
       }).reduce((s, p) => s + (p.amount || 0), 0)
-      cp.paidTotal = paid
-      cp.balance = cp.total - paid
+      const creditNotes = cp.invoices.filter(i => {
+        const t = (i.invoice_type || '').toLowerCase()
+        const n = (i.number || i.series || '').toLowerCase()
+        return t.includes('πιστωτικό') || t.includes('πιστωτικο') || t.includes('επιστροφή') || t.includes('επιστροφη') || t.includes('credit') || n.startsWith('πισ') || n.startsWith('pis')
+      }).reduce((s, i) => s + (i.total || 0), 0)
+      cp.paidTotal = paid + creditNotes
+      cp.balance = cp.total - creditNotes - paid
     })
     return Object.values(map).sort((a, b) => Math.abs(b.balance || b.total) - Math.abs(a.balance || a.total))
   }
