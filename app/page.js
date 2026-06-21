@@ -306,7 +306,7 @@ export default function App() {
     setSaving(true)
 
     // Έλεγχος διπλοεγγραφής (αριθμός + σειρά + ΑΦΜ εκδότη)
-    if (editForm.number && editForm.issuer_afm) {
+    if (editForm.number && editForm.issuer_afm && !editForm._editId) {
       let query = supabase.from('invoices')
         .select('id')
         .eq('number', editForm.number)
