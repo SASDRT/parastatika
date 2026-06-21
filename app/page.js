@@ -477,8 +477,13 @@ export default function App() {
         const n = (i.number || i.series || '').toLowerCase()
         return t.includes('πιστωτικό') || t.includes('πιστωτικο') || t.includes('επιστροφή') || t.includes('επιστροφη') || t.includes('credit') || n.startsWith('πισ') || n.startsWith('pis')
       }).reduce((s, i) => s + (i.total || 0), 0)
-      cp.paidTotal = paid + creditNotes
-      cp.balance = cp.total - creditNotes - paid
+      cp.paidTotal = paid
+      const debitTotal = cp.invoices.filter(i => {
+        const t = (i.invoice_type || '').toLowerCase()
+        const n = (i.number || i.series || '').toLowerCase()
+        return !t.includes('πιστωτικό') && !t.includes('πιστωτικο') && !t.includes('επιστροφή') && !t.includes('επιστροφη') && !t.includes('credit') && !n.startsWith('πισ') && !n.startsWith('pis')
+      }).reduce((s, i) => s + (i.total || 0), 0)
+      cp.balance = debitTotal - creditNotes - paid
     })
     return Object.values(map).sort((a, b) => Math.abs(b.balance || b.total) - Math.abs(a.balance || a.total))
   }
