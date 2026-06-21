@@ -1313,8 +1313,15 @@ function KartelesTab({ invoices, payments, byCounterparty, fmt, fmtDate, year, m
       ].sort((a,b) => new Date(a._date) - new Date(b._date))
       return allMov.map(mov => {
         const isInv = mov._kind === 'invoice'
-        const debit = isInv ? (mov.total||0) : 0
-        const credit = !isInv ? (mov.amount||0) : 0
+        const invType2 = (mov.invoice_type || '').toLowerCase()
+        const invNum2 = (mov.number || mov.series || '').toLowerCase()
+        const isCreditNote2 = isInv && (
+          invType2.includes('πιστωτικό') || invType2.includes('πιστωτικο') ||
+          invType2.includes('επιστροφή') || invType2.includes('επιστροφη') ||
+          invType2.includes('credit') || invNum2.startsWith('πισ') || invNum2.startsWith('pis')
+        )
+        const debit = isInv && !isCreditNote2 ? (mov.total||0) : 0
+        const credit = (!isInv ? (mov.amount||0) : 0) + (isCreditNote2 ? (mov.total||0) : 0)
         running += debit - credit
         const dr = cpType === 'income'
           ? `<td class="r red">${debit>0?debit.toFixed(2)+'€':'—'}</td><td class="r grn">${credit>0?credit.toFixed(2)+'€':'—'}</td>`
@@ -1433,8 +1440,16 @@ function KartelesTab({ invoices, payments, byCounterparty, fmt, fmtDate, year, m
                   <tbody>
                     {allMovements.map((mov, idx) => {
                       const isInvoice = mov._kind === 'invoice'
-                      const debit = isInvoice ? (mov.total || 0) : 0
-                      const credit = !isInvoice ? (mov.amount || 0) : 0
+                      const invType = (mov.invoice_type || '').toLowerCase()
+                      const invNum = (mov.number || mov.series || '').toLowerCase()
+                      const isCreditNote = isInvoice && (
+                        invType.includes('πιστωτικό') || invType.includes('πιστωτικο') ||
+                        invType.includes('επιστροφή') || invType.includes('επιστροφη') ||
+                        invType.includes('credit') || invType.includes('πίστωση') ||
+                        invNum.startsWith('πισ') || invNum.startsWith('pis')
+                      )
+                      const debit = isInvoice && !isCreditNote ? (mov.total || 0) : 0
+                      const credit = (!isInvoice ? (mov.amount || 0) : 0) + (isCreditNote ? (mov.total || 0) : 0)
                       running += debit - credit
                       const balColor = running > 0 ? '#f87171' : running < 0 ? '#4ade80' : '#5a6070'
                       return (<React.Fragment key={idx}>
