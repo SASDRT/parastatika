@@ -1399,8 +1399,8 @@ function KartelesTab({ invoices, payments, byCounterparty, fmt, fmtDate, year, m
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 9, color: '#5a6070', marginBottom: 2 }}>ΣΥΝΟΛΟ ΣΥΝΑΛΛΑΓΩΝ</div>
-                  <div style={{ fontFamily: 'monospace', fontSize: 22, fontWeight: 700, color }}>{fmt(selected.total)}</div>
+                  <div style={{ fontSize: 9, color: '#5a6070', marginBottom: 2 }}>ΥΠΟΛΟΙΠΟ</div>
+                  <div style={{ fontFamily: 'monospace', fontSize: 22, fontWeight: 700, color }}>{fmt(selected.balance !== undefined ? Math.abs(selected.balance) : selected.total)}</div>
                   <div style={{ fontSize: 10, color: '#5a6070' }}>{selected.invoices.length} παραστατικά</div>
                 </div>
                 <button onClick={printKartela} style={{ background: '#1e2232', color: '#e8eaf0', border: 'none', padding: '8px 14px', borderRadius: 7, fontSize: 12, cursor: 'pointer', whiteSpace: 'nowrap' }}>
