@@ -455,10 +455,7 @@ export default function App() {
       const key = afm || name
       if (!map[key]) map[key] = { name, trade_name: tradeName, afm, doy, invoices: [], total: 0 }
       map[key].invoices.push(inv)
-      const t = (inv.invoice_type || '').toLowerCase()
-      const n = (inv.number || inv.series || '').toLowerCase()
-      const isCN = t.includes('πιστωτικό') || t.includes('πιστωτικο') || t.includes('επιστροφή') || t.includes('επιστροφη') || t.includes('credit') || n.startsWith('πισ') || n.startsWith('pis')
-      map[key].total += isCN ? -(inv.total || 0) : (inv.total || 0)
+      map[key].total += inv.total || 0
     })
     // Από πληρωμές/εισπράξεις χωρίς τιμολόγιο
     const pType = type === 'expense' ? 'payment' : 'receipt'
