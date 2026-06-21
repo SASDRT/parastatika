@@ -61,6 +61,17 @@ const C = {
   sectionTitle: (c) => ({ fontSize: 10, color: c || '#5a6070', fontWeight: 700, marginBottom: 10, letterSpacing: 1, textTransform: 'uppercase' }),
 }
 
+function InputF({ label, field, col = 1, mono = false, type = 'text', placeholder = '', value, onChange }) {
+  return (
+    <div style={{ gridColumn: `span ${col}` }}>
+      <label style={C.label}>{label}</label>
+      <input type={type} value={value || ''} placeholder={placeholder}
+        onChange={e => onChange(field, e.target.value)}
+        style={{ ...C.input, fontFamily: mono ? 'monospace' : 'inherit' }} />
+    </div>
+  )
+}
+
 export default function App() {
   const [session, setSession] = useState(null)
   const [authLoading, setAuthLoading] = useState(true)
@@ -474,14 +485,7 @@ export default function App() {
     </div>
   )
 
-  const InputF = ({ label, field, col = 1, mono = false, type = 'text', placeholder = '' }) => (
-    <div style={{ gridColumn: `span ${col}` }}>
-      <label style={C.label}>{label}</label>
-      <input type={type} value={editForm?.[field] || ''} placeholder={placeholder}
-        onChange={e => ef(field, e.target.value)}
-        style={{ ...C.input, fontFamily: mono ? 'monospace' : 'inherit' }} />
-    </div>
-  )
+
 
   if (authLoading) return (
     <div style={{ minHeight: '100vh', background: '#0a0c13', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -681,10 +685,10 @@ export default function App() {
                     </div>
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, marginTop: 8 }}>
-                    <InputF label="ΣΕΙΡΑ" field="series" placeholder="Α" />
-                    <InputF label="ΑΡΙΘΜΟΣ" field="number" placeholder="0001" mono />
-                    <InputF label="ΩΡΑ" field="time" placeholder="14:30" />
-                    <InputF label="MARK (myDATA)" field="mark" mono />
+                    <InputF label="ΣΕΙΡΑ" field="series" placeholder="Α"  value={editForm?.["series"]} onChange={ef} />
+                    <InputF label="ΑΡΙΘΜΟΣ" field="number" placeholder="0001" mono  value={editForm?.["number"]} onChange={ef} />
+                    <InputF label="ΩΡΑ" field="time" placeholder="14:30"  value={editForm?.["time"]} onChange={ef} />
+                    <InputF label="MARK (myDATA)" field="mark" mono  value={editForm?.["mark"]} onChange={ef} />
                   </div>
                 </div>
 
@@ -692,17 +696,17 @@ export default function App() {
                 <div style={C.section}>
                   <div style={C.sectionTitle('#7c5cf7')}>ΕΚΔΟΤΗΣ</div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                    <InputF label="ΕΠΩΝΥΜΙΑ" field="issuer_name" col={1} />
-                    <InputF label="ΔΙΑΚΡΙΤΙΚΟΣ ΤΙΤΛΟΣ" field="issuer_trade_name" col={1} />
-                    <InputF label="ΑΦΜ" field="issuer_afm" mono />
-                    <InputF label="ΔΟΥ" field="issuer_doy" />
-                    <InputF label="ΓΕΜΗ" field="issuer_gem" mono />
-                    <InputF label="ΤΗΛΕΦΩΝΟ" field="issuer_phone" />
+                    <InputF label="ΕΠΩΝΥΜΙΑ" field="issuer_name" col={1}  value={editForm?.["issuer_name"]} onChange={ef} />
+                    <InputF label="ΔΙΑΚΡΙΤΙΚΟΣ ΤΙΤΛΟΣ" field="issuer_trade_name" col={1}  value={editForm?.["issuer_trade_name"]} onChange={ef} />
+                    <InputF label="ΑΦΜ" field="issuer_afm" mono  value={editForm?.["issuer_afm"]} onChange={ef} />
+                    <InputF label="ΔΟΥ" field="issuer_doy"  value={editForm?.["issuer_doy"]} onChange={ef} />
+                    <InputF label="ΓΕΜΗ" field="issuer_gem" mono  value={editForm?.["issuer_gem"]} onChange={ef} />
+                    <InputF label="ΤΗΛΕΦΩΝΟ" field="issuer_phone"  value={editForm?.["issuer_phone"]} onChange={ef} />
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 80px', gap: 8, marginTop: 8 }}>
-                    <InputF label="ΔΙΕΥΘΥΝΣΗ" field="issuer_address" />
-                    <InputF label="ΠΟΛΗ" field="issuer_city" />
-                    <InputF label="Τ.Κ." field="issuer_postal" mono />
+                    <InputF label="ΔΙΕΥΘΥΝΣΗ" field="issuer_address"  value={editForm?.["issuer_address"]} onChange={ef} />
+                    <InputF label="ΠΟΛΗ" field="issuer_city"  value={editForm?.["issuer_city"]} onChange={ef} />
+                    <InputF label="Τ.Κ." field="issuer_postal" mono  value={editForm?.["issuer_postal"]} onChange={ef} />
                   </div>
                 </div>
 
@@ -712,16 +716,16 @@ export default function App() {
                     {editForm.type === 'income' ? 'ΠΕΛΑΤΗΣ' : 'ΠΕΛΑΤΗΣ (ΑΓΟΡΑΣΤΗΣ)'}
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                    <InputF label="ΕΠΩΝΥΜΙΑ" field="counterparty" />
-                    <InputF label="ΔΙΑΚΡΙΤΙΚΟΣ ΤΙΤΛΟΣ" field="trade_name" />
-                    <InputF label="ΑΦΜ" field="afm" mono />
-                    <InputF label="ΔΟΥ" field="doy" />
-                    <InputF label="ΤΗΛΕΦΩΝΟ" field="phone" />
-                    <InputF label="ΠΟΛΗ" field="city" />
+                    <InputF label="ΕΠΩΝΥΜΙΑ" field="counterparty"  value={editForm?.["counterparty"]} onChange={ef} />
+                    <InputF label="ΔΙΑΚΡΙΤΙΚΟΣ ΤΙΤΛΟΣ" field="trade_name"  value={editForm?.["trade_name"]} onChange={ef} />
+                    <InputF label="ΑΦΜ" field="afm" mono  value={editForm?.["afm"]} onChange={ef} />
+                    <InputF label="ΔΟΥ" field="doy"  value={editForm?.["doy"]} onChange={ef} />
+                    <InputF label="ΤΗΛΕΦΩΝΟ" field="phone"  value={editForm?.["phone"]} onChange={ef} />
+                    <InputF label="ΠΟΛΗ" field="city"  value={editForm?.["city"]} onChange={ef} />
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '2fr 80px', gap: 8, marginTop: 8 }}>
-                    <InputF label="ΔΙΕΥΘΥΝΣΗ" field="address" />
-                    <InputF label="Τ.Κ." field="postal" mono />
+                    <InputF label="ΔΙΕΥΘΥΝΣΗ" field="address"  value={editForm?.["address"]} onChange={ef} />
+                    <InputF label="Τ.Κ." field="postal" mono  value={editForm?.["postal"]} onChange={ef} />
                   </div>
                 </div>
 
@@ -756,11 +760,11 @@ export default function App() {
                         <option>Επί πιστώσει</option>
                       </select>
                     </div>
-                    <InputF label="ΗΜΕΡΟΜΗΝΙΑ ΛΗΞΗΣ" field="due_date" type="date" />
-                    <InputF label="ΤΡΑΠΕΖΑ" field="bank" />
+                    <InputF label="ΗΜΕΡΟΜΗΝΙΑ ΛΗΞΗΣ" field="due_date" type="date"  value={editForm?.["due_date"]} onChange={ef} />
+                    <InputF label="ΤΡΑΠΕΖΑ" field="bank"  value={editForm?.["bank"]} onChange={ef} />
                   </div>
                   <div style={{ marginTop: 8 }}>
-                    <InputF label="IBAN" field="iban" mono />
+                    <InputF label="IBAN" field="iban" mono  value={editForm?.["iban"]} onChange={ef} />
                   </div>
                 </div>
 
