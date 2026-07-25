@@ -654,7 +654,35 @@ export default function App() {
                     </label>
                     <label style={{ ...C.btnGhost, display: 'inline-flex', alignItems: 'center', gap: 8, padding: '13px 22px', fontSize: 14, borderRadius: 9 }}>
                       Από συλλογή
-                      <input type="file" accept="image/*,.pdf" style={{ display: 'none' }} onChange={e => handleFile(e.target.files[0])} />
+                      <input type="file" accept="image/*,.pdf" multiple style={{ display: 'none' }} onChange={async e => {
+                        const files = Array.from(e.target.files)
+                        if (files.length === 1) { handleFile(files[0]); return }
+                        // Πολλές φωτογραφίες - στείλε όλες μαζί
+                        setScanning(true); setEditForm(null); setPreviewImg(null)
+                        try {
+                          const toBase64 = f => new Promise((res, rej) => {
+                            const r = new FileReader()
+                            r.onload = e => res(e.target.result)
+                            r.onerror = rej
+                            r.readAsDataURL(f)
+                          })
+                          const dataUrls = await Promise.all(files.map(toBase64))
+                          setPreviewImg(dataUrls[0])
+                          const content = dataUrls.map((d, i) => ([
+                            { type: 'image', source: { type: 'base64', media_type: files[i].type || 'image/jpeg', data: d.split(',')[1] } }
+                          ])).flat()
+                          content.push({ type: 'text', text: 'Αυτές οι εικόνες είναι σελίδες του ίδιου παραστατικού. Διάβασέ τες όλες και επέστρεψε ένα JSON με όλα τα στοιχεία.' })
+                          const res = await fetch('/api/ocr', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ multiContent: content })
+                          })
+                          const json = await res.json()
+                          if (json.success) setEditForm(json.data)
+                          else notify('⚠️ Δεν μπόρεσα να διαβάσω.', 'error')
+                        } catch(e) { notify('⚠️ Σφάλμα: ' + e.message, 'error') }
+                        setScanning(false)
+                      }} />
                     </label>
                   </div>
                 </div>
