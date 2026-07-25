@@ -1,15 +1,20 @@
 export async function POST(request) {
   try {
-    const { base64, mediaType, mode } = await request.json()
-    const isPDF = mediaType === 'application/pdf'
+    const { base64, mediaType, mode, multiContent } = await request.json()
 
-    const content = isPDF ? [
-      { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-      { type: 'text', text: mode === 'expense' ? getExpensePrompt() : getInvoicePrompt() }
-    ] : [
-      { type: 'image', source: { type: 'base64', media_type: mediaType || 'image/jpeg', data: base64 } },
-      { type: 'text', text: mode === 'expense' ? getExpensePrompt() : getInvoicePrompt() }
-    ]
+    let content
+    if (multiContent) {
+      content = [...multiContent, { type: 'text', text: getInvoicePrompt() }]
+    } else {
+      const isPDF = mediaType === 'application/pdf'
+      content = isPDF ? [
+        { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
+        { type: 'text', text: mode === 'expense' ? getExpensePrompt() : getInvoicePrompt() }
+      ] : [
+        { type: 'image', source: { type: 'base64', media_type: mediaType || 'image/jpeg', data: base64 } },
+        { type: 'text', text: mode === 'expense' ? getExpensePrompt() : getInvoicePrompt() }
+      ]
+    }
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -71,7 +76,7 @@ function getExpensePrompt() {
 }
 
 function getInvoicePrompt() {
-  return `Διάβασε αυτό το τιμολόγιο ΠΟΛΥ ΠΡΟΣΕΚΤΙΚΑ. Επέστρεψε ΜΟΝΟ JSON χωρίς backticks.
+  return `Διάβασε αυτό το τιμολόγιο ΠΟΛΥ ΠΡΟΣΕΚΤΙΚΑ. Αν υπάρχουν πολλές εικόνες είναι σελίδες του ίδιου παραστατικού. Επέστρεψε ΜΟΝΟ JSON χωρίς backticks.
 
 ΑΠΟΛΥΤΟΣ ΚΑΝΟΝΑΣ:
 Η εταιρεία μου είναι: SMART AUTOMATION SOLUTIONS, ΑΦΜ 802802461
